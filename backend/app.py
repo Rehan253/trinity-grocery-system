@@ -4,13 +4,8 @@ from flasgger import Swagger
 from config import Config
 from extensions import db, migrate
 import models
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager
-from dotenv import load_dotenv
 
-from config import Config
+from routes.auth_routes import auth_bp
 
 
 
@@ -28,6 +23,9 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     Swagger(app)
+
+    # Register blueprints
+    app.register_blueprint(auth_bp)
 
     # ---------------- ROUTES ----------------
 
