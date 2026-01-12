@@ -1,12 +1,12 @@
 from flask import Flask, jsonify
 from flasgger import Swagger
+from flask_jwt_extended import JWTManager
 
 from config import Config
 from extensions import db, migrate
 import models
 
 from routes.auth_routes import auth_bp
-
 
 
 def create_app():
@@ -16,12 +16,17 @@ def create_app():
     """
     app = Flask(__name__)
 
-    # Load configuration from config.py
+    # Load configuration
     app.config.from_object(Config)
 
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
+
+    # Initialize JWT
+    JWTManager(app)
+
+    # Initialize Swagger
     Swagger(app)
 
     # Register blueprints

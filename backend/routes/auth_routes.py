@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy.exc import IntegrityError
+from flask_jwt_extended import create_access_token
 
 from extensions import db
 from models import User
@@ -144,3 +145,71 @@ def register():
             },
         }
     ), 201
+
+@auth_bp.post("/login")
+def login():
+    """
+    User login
+    ---
+    tags:
+      - Authentication
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - password
+          properties:
+            email:
+              type: string
+              example: john.doe@example.com
+            password:
+              type: string
+              example: StrongPass123
+    responses:
+      200:
+        description: Login successful
+      400:
+        description: Missing credentials
+      401:
+        description: Invalid email or password
+    """
+
+    data = request.get_json(silent=True) or {}
+
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    # Validate input
+    if not email or not password:
+        return jsonify({"message": "Email and password are required"}), 400
+
+    # Find user
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"message": "Invalid email or password"}), 401
+
+    # Verify password
+    from security import verify_password
+
+    if not verify_password(password, user.password_hash):
+        return jsonify({"message": "Invalid email or password"}), 401
+
+    # Create JWT token
+    access_token = create_access_token(identity=user.id)
+
+    return jsonify({
+        "access_token": access_token,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name
+        }
+    }), 200
