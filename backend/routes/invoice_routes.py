@@ -151,3 +151,42 @@ def add_invoice_item(invoice_id):
         "new_total_amount": float(invoice.total_amount),
         "remaining_stock": product.quantity_in_stock
     }), 201
+
+@invoice_bp.get("/<int:invoice_id>")
+@jwt_required()
+def get_invoice_details(invoice_id):
+    """
+    Get invoice details
+    ---
+    tags:
+      - Invoices
+    """
+
+    user_id = int(get_jwt_identity())
+
+    invoice = Invoice.query.get(invoice_id)
+    if not invoice:
+        return jsonify({"message": "Invoice not found"}), 404
+
+    # Ownership check
+    if invoice.user_id != user_id:
+        return jsonify({"message": "You are not allowed to view this invoice"}), 403
+
+    items = []
+    for item in invoice.invoice_items:
+        items.append({
+            "id": item.id,
+            "product_id": item.product.id,
+            "product_name": item.product.name,
+            "quantity": item.quantity,
+            "unit_price": float(item.unit_price),
+            "line_total": float(item.unit_price) * item.quantity
+        })
+
+    return jsonify({
+        "invoice_id": invoice.id,
+        "user_id": invoice.user_id,
+        "total_amount": float(invoice.total_amount),
+        "created_at": invoice.created_at.isoformat(),
+        "items": items
+    }), 200
