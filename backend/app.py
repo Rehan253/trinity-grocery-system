@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from flasgger import Swagger
 from flask_jwt_extended import JWTManager
 from routes.product_routes import product_bp
+from routes.invoice_routes import invoice_bp
 
 from config import Config
 from extensions import db, migrate
@@ -33,6 +34,9 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(product_bp)
+    app.register_blueprint(invoice_bp)
+
+    
 
 
     # ---------------- SYSTEM ROUTES ----------------

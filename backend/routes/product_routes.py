@@ -204,3 +204,36 @@ def update_product(product_id):
     db.session.commit()
 
     return jsonify({"message": "Product updated successfully"}), 200
+
+
+@product_bp.delete("/<int:product_id>")
+@jwt_required()
+def delete_product(product_id):
+    """
+    Delete a product
+    ---
+    tags:
+      - Products
+    parameters:
+      - name: product_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Product deleted successfully
+      404:
+        description: Product not found
+      401:
+        description: Unauthorized
+    """
+
+    product = Product.query.get(product_id)
+
+    if not product:
+        return jsonify({"message": "Product not found"}), 404
+
+    db.session.delete(product)
+    db.session.commit()
+
+    return jsonify({"message": "Product deleted successfully"}), 200
