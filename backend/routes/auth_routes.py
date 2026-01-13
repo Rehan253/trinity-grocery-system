@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy.exc import IntegrityError
 from flask_jwt_extended import create_access_token
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
 
 from extensions import db
 from models import User
@@ -202,7 +204,9 @@ def login():
         return jsonify({"message": "Invalid email or password"}), 401
 
     # Create JWT token
-    access_token = create_access_token(identity=user.id)
+    
+    access_token = create_access_token(identity=str(user.id))
+
 
     return jsonify({
         "access_token": access_token,
@@ -212,4 +216,40 @@ def login():
             "first_name": user.first_name,
             "last_name": user.last_name
         }
+    }), 200
+
+@auth_bp.get("/me")
+@jwt_required()
+def get_current_user():
+    """
+    Get current authenticated user
+    ---
+    tags:
+      - Authentication
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Current user data
+      401:
+        description: Unauthorized
+    """
+
+    user_id = get_jwt_identity()
+
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    return jsonify({
+        "id": user.id,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "phone_number": user.phone_number,
+        "address": user.address,
+        "zip_code": user.zip_code,
+        "city": user.city,
+        "country": user.country,
     }), 200

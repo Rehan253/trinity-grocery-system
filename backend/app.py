@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 from flasgger import Swagger
 from flask_jwt_extended import JWTManager
+from routes.product_routes import product_bp
 
 from config import Config
 from extensions import db, migrate
@@ -26,13 +27,15 @@ def create_app():
     # Initialize JWT
     JWTManager(app)
 
-    # Initialize Swagger
+    #  Simple, stable Swagger (documentation only)
     Swagger(app)
 
     # Register blueprints
     app.register_blueprint(auth_bp)
+    app.register_blueprint(product_bp)
 
-    # ---------------- ROUTES ----------------
+
+    # ---------------- SYSTEM ROUTES ----------------
 
     @app.route("/", methods=["GET"])
     def index():
@@ -45,7 +48,8 @@ def create_app():
           200:
             description: API is running
             examples:
-              application/json: { "message": "Trinity Grocery API is running" }
+              application/json:
+                message: Trinity Grocery API is running
         """
         return jsonify({"message": "Trinity Grocery API is running"})
 
@@ -60,7 +64,8 @@ def create_app():
           200:
             description: Health OK
             examples:
-              application/json: { "status": "ok" }
+              application/json:
+                status: ok
         """
         return jsonify({"status": "ok"})
 
@@ -69,7 +74,6 @@ def create_app():
 
 # Create app instance
 app = create_app()
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
