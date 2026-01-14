@@ -3,6 +3,8 @@ from models import Product
 from flask import request
 from flask_jwt_extended import jwt_required
 from extensions import db
+from security.authorization import admin_required
+
 product_bp = Blueprint("products", __name__, url_prefix="/products")
 
 
@@ -79,7 +81,7 @@ def get_product_by_id(product_id):
 
 
 @product_bp.post("/")
-@jwt_required()
+@admin_required
 def create_product():
     """
     Create a new product
@@ -157,7 +159,7 @@ def create_product():
     }), 201
 
 @product_bp.put("/<int:product_id>")
-@jwt_required()
+@admin_required
 def update_product(product_id):
     """
     Update a product
@@ -207,7 +209,7 @@ def update_product(product_id):
 
 
 @product_bp.delete("/<int:product_id>")
-@jwt_required()
+@admin_required
 def delete_product(product_id):
     """
     Delete a product

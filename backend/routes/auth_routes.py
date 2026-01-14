@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from extensions import db
 from models import User
-from security import hash_password
+from security_utils import hash_password
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -198,7 +198,7 @@ def login():
         return jsonify({"message": "Invalid email or password"}), 401
 
     # Verify password
-    from security import verify_password
+    from security_utils import verify_password
 
     if not verify_password(password, user.password_hash):
         return jsonify({"message": "Invalid email or password"}), 401
