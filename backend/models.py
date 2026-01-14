@@ -22,6 +22,9 @@ class User(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    role = db.Column(db.String(20), nullable=False, default="customer")
+
+
     invoices = db.relationship(
         "Invoice",
         back_populates="user",
