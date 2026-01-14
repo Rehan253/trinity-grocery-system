@@ -190,3 +190,38 @@ def get_invoice_details(invoice_id):
         "created_at": invoice.created_at.isoformat(),
         "items": items
     }), 200
+
+@invoice_bp.get("/me")
+@jwt_required()
+def get_my_invoices():
+    """
+    Get current user's invoices
+    ---
+    tags:
+      - Invoices
+    responses:
+      200:
+        description: List of user invoices
+      401:
+        description: Unauthorized
+    """
+
+    user_id = int(get_jwt_identity())
+
+    invoices = (
+        Invoice.query
+        .filter_by(user_id=user_id)
+        .order_by(Invoice.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for invoice in invoices:
+        result.append({
+            "invoice_id": invoice.id,
+            "total_amount": float(invoice.total_amount),
+            "created_at": invoice.created_at.isoformat(),
+            "item_count": len(invoice.invoice_items)
+        })
+
+    return jsonify(result), 200
