@@ -3,6 +3,7 @@ from flasgger import Swagger
 from flask_jwt_extended import JWTManager
 from routes.product_routes import product_bp
 from routes.invoice_routes import invoice_bp
+from routes.admin_product_import_routes import admin_import_bp
 
 from config import Config
 from extensions import db, migrate
@@ -35,6 +36,8 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(product_bp)
     app.register_blueprint(invoice_bp)
+    app.register_blueprint(admin_import_bp)
+
 
     
 
