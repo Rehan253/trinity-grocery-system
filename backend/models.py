@@ -1,5 +1,5 @@
 from datetime import datetime
-from app import db
+from extensions import db
 
 
 class User(db.Model):
@@ -22,8 +22,14 @@ class User(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    invoices = db.relationship("Invoice", backref="user", lazy=True)
+    role = db.Column(db.String(20), nullable=False, default="customer")
 
+
+    invoices = db.relationship(
+        "Invoice",
+        back_populates="user",
+        lazy=True
+    )
 
 
 class Product(db.Model):
@@ -43,8 +49,12 @@ class Product(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    invoice_items = db.relationship("InvoiceItem", backref="product", lazy=True)
-
+    invoice_items = db.relationship(
+        "InvoiceItem",
+        back_populates="product",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
 
 
 class Invoice(db.Model):
@@ -58,8 +68,17 @@ class Invoice(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    items = db.relationship("InvoiceItem", backref="invoice", lazy=True)
+    user = db.relationship(
+        "User",
+        back_populates="invoices"
+    )
 
+    invoice_items = db.relationship(
+        "InvoiceItem",
+        back_populates="invoice",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
 
 
 class InvoiceItem(db.Model):
@@ -70,10 +89,28 @@ class InvoiceItem(db.Model):
     __tablename__ = "invoice_items"
 
     id = db.Column(db.Integer, primary_key=True)
-    invoice_id = db.Column(db.Integer, db.ForeignKey("invoices.id"), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
+
+    invoice_id = db.Column(
+        db.Integer,
+        db.ForeignKey("invoices.id"),
+        nullable=False
+    )
+
+    product_id = db.Column(
+        db.Integer,
+        db.ForeignKey("products.id"),
+        nullable=False
+    )
+
     quantity = db.Column(db.Integer, nullable=False)
     unit_price = db.Column(db.Numeric(10, 2), nullable=False)
 
-    invoice = db.relationship("Invoice", backref="items")
-    product = db.relationship("Product")
+    invoice = db.relationship(
+        "Invoice",
+        back_populates="invoice_items"
+    )
+
+    product = db.relationship(
+        "Product",
+        back_populates="invoice_items"
+    )
