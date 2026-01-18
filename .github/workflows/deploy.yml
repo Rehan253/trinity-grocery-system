@@ -51,59 +51,57 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:${{ env.commit_hash }}
           docker push ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
 
-      # Step 7: Upload compose files to EC2
+      # Step 7: Upload compose files to EC2 (native scp)
       - name: Verify SSH secret
         run: |
           if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
             echo "SSH_PRIVATE_KEY is empty or missing."
             exit 1
           fi
+          if ! printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" | head -n 1 | grep -q "BEGIN OPENSSH PRIVATE KEY"; then
+            echo "SSH_PRIVATE_KEY does not look like a private key."
+            exit 1
+          fi
 
       - name: Prepare SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Upload compose files
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key_path: ~/.ssh/id_ed25519
-          source: "backend/docker-compose.yml,backend/docker-compose.prod.yml"
-          target: ${{ secrets.EC2_APP_DIR }}
+        run: |
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
+            backend/docker-compose.yml backend/docker-compose.prod.yml \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ secrets.EC2_APP_DIR }}/
 
-      # Step 8: Deploy to EC2 via SSH
-      #    Connects to EC2 instance and runs docker compose
+      # Step 8: Deploy to EC2 via SSH (native ssh)
       - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
-            APP_DIR="${{ secrets.EC2_APP_DIR }}"
-            if [ -z "$APP_DIR" ]; then
-              echo "EC2_APP_DIR secret is required."
-              exit 1
-            fi
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} <<'EOF'
+          set -e
+          APP_DIR="${{ secrets.EC2_APP_DIR }}"
+          if [ -z "$APP_DIR" ]; then
+            echo "EC2_APP_DIR secret is required."
+            exit 1
+          fi
 
-            mkdir -p "$APP_DIR"
-            cd "$APP_DIR"
+          mkdir -p "$APP_DIR"
+          cd "$APP_DIR"
 
-            export DOCKER_IMAGE="${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest"
-            export PGUSER="${{ secrets.PGUSER }}"
-            export PGPASSWORD="${{ secrets.PGPASSWORD }}"
-            export PGDATABASE="${{ secrets.PGDATABASE }}"
-            export SECRET_KEY="${{ secrets.SECRET_KEY }}"
-            export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
+          export DOCKER_IMAGE="${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest"
+          export PGUSER="${{ secrets.PGUSER }}"
+          export PGPASSWORD="${{ secrets.PGPASSWORD }}"
+          export PGDATABASE="${{ secrets.PGDATABASE }}"
+          export SECRET_KEY="${{ secrets.SECRET_KEY }}"
+          export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
 
-            echo "Pulling latest image and starting services..."
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+          echo "Pulling latest image and starting services..."
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 
-            echo "Deployment completed successfully!"
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          echo "Deployment completed successfully!"
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          EOF
