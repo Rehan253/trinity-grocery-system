@@ -11,6 +11,7 @@ export const sampleProducts = [
         icon: "🍎",
         description: "Crisp and sweet red apples",
         ingredients: ["Apples"],
+        dietaryTags: ["halal", "vegetarian", "vegan", "kosher"],
         stock: 45,
         rating: 4.5,
         reviews: 128
@@ -24,6 +25,7 @@ export const sampleProducts = [
         icon: "🍌",
         description: "Fresh organic bananas",
         ingredients: ["Bananas"],
+        dietaryTags: ["halal", "vegetarian", "vegan", "kosher"],
         stock: 67,
         rating: 4.8,
         reviews: 95
@@ -37,6 +39,7 @@ export const sampleProducts = [
         icon: "🍊",
         description: "Sweet and juicy oranges",
         ingredients: ["Oranges"],
+        dietaryTags: ["halal", "vegetarian", "vegan", "kosher"],
         stock: 38,
         rating: 4.6,
         reviews: 82
@@ -50,6 +53,7 @@ export const sampleProducts = [
         icon: "🍓",
         description: "Sweet fresh strawberries",
         ingredients: ["Strawberries"],
+        dietaryTags: ["halal", "vegetarian", "vegan", "kosher"],
         stock: 3,
         rating: 4.9,
         reviews: 156
@@ -65,6 +69,7 @@ export const sampleProducts = [
         icon: "🥕",
         description: "Fresh organic carrots",
         ingredients: ["Carrots"],
+        dietaryTags: ["halal", "vegetarian", "vegan", "kosher"],
         stock: 52,
         rating: 4.7,
         reviews: 74
@@ -78,6 +83,7 @@ export const sampleProducts = [
         icon: "🥦",
         description: "Green fresh broccoli",
         ingredients: ["Broccoli"],
+        dietaryTags: ["halal", "vegetarian", "vegan", "kosher"],
         stock: 28,
         rating: 4.5,
         reviews: 63
@@ -91,6 +97,7 @@ export const sampleProducts = [
         icon: "🍅",
         description: "Sweet cherry tomatoes",
         ingredients: ["Tomatoes"],
+        dietaryTags: ["halal", "vegetarian", "vegan", "kosher"],
         stock: 41,
         rating: 4.8,
         reviews: 112
@@ -104,6 +111,7 @@ export const sampleProducts = [
         icon: "🥬",
         description: "Crispy fresh lettuce",
         ingredients: ["Lettuce"],
+        dietaryTags: ["halal", "vegetarian", "vegan", "kosher"],
         stock: 36,
         rating: 4.4,
         reviews: 58
@@ -119,6 +127,7 @@ export const sampleProducts = [
         icon: "🥛",
         description: "Fresh organic milk",
         ingredients: ["Organic Whole Milk"],
+        dietaryTags: ["halal", "vegetarian", "kosher"],
         stock: 24,
         rating: 4.7,
         reviews: 145
@@ -134,6 +143,7 @@ export const sampleProducts = [
         icon: "🥛",
         description: "Creamy Greek yogurt",
         ingredients: ["Milk", "Live Active Cultures"],
+        dietaryTags: ["halal", "vegetarian", "kosher"],
         stock: 31,
         rating: 4.8,
         reviews: 203
@@ -147,6 +157,7 @@ export const sampleProducts = [
         icon: "🧀",
         description: "Sharp cheddar cheese",
         ingredients: ["Milk", "Salt", "Enzymes", "Annatto"],
+        dietaryTags: ["halal", "vegetarian", "kosher"],
         stock: 19,
         rating: 4.6,
         reviews: 87
@@ -216,6 +227,7 @@ export const sampleProducts = [
         icon: "🥩",
         description: "Premium quality beef",
         ingredients: ["Beef"],
+        dietaryTags: ["halal"],
         stock: 12,
         rating: 4.8,
         reviews: 134
@@ -231,6 +243,7 @@ export const sampleProducts = [
         icon: "🍗",
         description: "Fresh chicken breast",
         ingredients: ["Chicken Breast"],
+        dietaryTags: ["halal"],
         stock: 23,
         rating: 4.7,
         reviews: 156

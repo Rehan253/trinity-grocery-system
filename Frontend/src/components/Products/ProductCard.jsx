@@ -1,9 +1,10 @@
 import { useState } from "react"
 
-const ProductCard = ({ product, onAddToCart }) => {
+const ProductCard = ({ product, onAddToCart, onProductClick }) => {
     const [isAdded, setIsAdded] = useState(false)
 
-    const handleAddToCart = () => {
+    const handleAddToCart = (e) => {
+        e.stopPropagation() // Prevent opening modal when clicking add to cart
         if (onAddToCart) {
             onAddToCart(product)
             // Show added animation
@@ -14,8 +15,16 @@ const ProductCard = ({ product, onAddToCart }) => {
         }
     }
 
+    const handleCardClick = () => {
+        if (onProductClick) {
+            onProductClick(product)
+        }
+    }
+
     return (
-        <div className="bg-white rounded-[--radius-card] shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group hover:scale-105 transform relative">
+        <div
+            className="bg-white rounded-[--radius-card] shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group hover:scale-105 transform relative cursor-pointer"
+            onClick={handleCardClick}>
             {/* Product Image Container */}
             <div className="relative bg-gray-100 h-48 flex items-center justify-center overflow-hidden">
                 {product.image ? (

@@ -13,17 +13,17 @@ const Navbar = () => {
     }
 
     return (
-        <nav className="bg-white shadow-lg sticky top-0 z-50">
+        <nav className="bg-premium-secondary shadow-lg sticky top-0 z-50">
             {/* Main Navbar */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">
                     {/* Left - Brand Name */}
                     <div className="flex-shrink-0">
                         <Link
-                            className="text-premium-secondary font-bold text-2xl sm:text-3xl"
+                            className="text-white font-bold text-2xl sm:text-3xl"
                             style={{ fontFamily: "'Poppins', sans-serif" }}
                             to="/">
-                            FreshExpress
+                            The Filtered Fridge
                         </Link>
                     </div>
 
@@ -38,7 +38,7 @@ const Navbar = () => {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     placeholder="Search for products..."
-                                    className="w-full px-6 py-3 pr-12 rounded-[30px] border-2 border-gray-300 focus:border-premium-primary focus:outline-none transition-colors duration-200"
+                                    className="w-full px-6 py-3 pr-12 rounded-[30px] border-2 border-white/30 bg-white/90 focus:border-white focus:bg-white focus:outline-none transition-colors duration-200 text-premium-text placeholder-gray-500"
                                 />
                                 <button
                                     type="submit"
@@ -66,10 +66,10 @@ const Navbar = () => {
                         {/* Profile Icon */}
                         <Link
                             to="/profile"
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">
+                            className="p-2 hover:bg-white/20 rounded-full transition-colors duration-200">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-7 w-7 text-premium-text"
+                                className="h-7 w-7 text-white"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor">
@@ -85,10 +85,10 @@ const Navbar = () => {
                         {/* Cart Icon */}
                         <button
                             onClick={toggleCart}
-                            className="relative p-2 hover:bg-gray-100 rounded-full transition-colors duration-200">
+                            className="relative p-2 hover:bg-white/20 rounded-full transition-colors duration-200">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-7 w-7 text-premium-text"
+                                className="h-7 w-7 text-white"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor">
@@ -119,7 +119,7 @@ const Navbar = () => {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search for products..."
-                                className="w-full px-6 py-3 pr-12 rounded-[30px] border-2 border-gray-300 focus:border-premium-primary focus:outline-none transition-colors duration-200"
+                                className="w-full px-6 py-3 pr-12 rounded-[30px] border-2 border-white/30 bg-white/90 focus:border-white focus:bg-white focus:outline-none transition-colors duration-200 text-premium-text placeholder-gray-500"
                             />
                             <button
                                 type="submit"

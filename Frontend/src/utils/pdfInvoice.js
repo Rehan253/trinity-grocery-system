@@ -56,7 +56,7 @@ export const generateInvoicePDF = (order) => {
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(28)
     doc.setFont("helvetica", "bold")
-    doc.text("FreshExpress", 105, 25, { align: "center" })
+    doc.text("The Filtered Fridge", 105, 25, { align: "center" })
     doc.setFontSize(12)
     doc.setFont("helvetica", "normal")
     doc.text("Premium Online Grocery Store", 105, 33, { align: "center" })
@@ -201,11 +201,11 @@ export const generateInvoicePDF = (order) => {
     // Footer
     doc.setFontSize(9)
     doc.setTextColor(150, 150, 150)
-    doc.text("Thank you for shopping with FreshExpress!", 105, 280, { align: "center" })
+    doc.text("Thank you for shopping with The Filtered Fridge!", 105, 280, { align: "center" })
     doc.text("For support: support@freshexpress.com | +1 (555) 123-4567", 105, 286, {
         align: "center"
     })
 
     // Save PDF
-    doc.save(`FreshExpress-Invoice-${orderNumber}.pdf`)
+    doc.save(`TheFilteredFridge-Invoice-${orderNumber}.pdf`)
 }

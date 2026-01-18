@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import Navbar from "../../components/Navbar"
 import { PromoCarousel } from "../../components/PromoCarousel"
-import { CategorySidebar, ProductGrid } from "../../components/Products"
+import { CategorySidebar, ProductGrid, ProductDetail, ProductFilters } from "../../components/Products"
 import { CartSidebar } from "../../components/Cart"
 import { useCart } from "../../context/CartContext"
 import { sampleProducts } from "../../data/products"
@@ -10,6 +10,62 @@ import { sampleProducts } from "../../data/products"
 const Shop = () => {
     const { addToCart } = useCart()
     const [selectedCategory, setSelectedCategory] = useState("All")
+    const [selectedProduct, setSelectedProduct] = useState(null)
+    const [isProductDetailOpen, setIsProductDetailOpen] = useState(false)
+    const [filters, setFilters] = useState({ preferencesEnabled: true })
+    const [userPreferences, setUserPreferences] = useState(null)
+
+    // Load user preferences from localStorage
+    useEffect(() => {
+        const loadPreferences = () => {
+            const saved = localStorage.getItem("userPreferences")
+            if (saved) {
+                try {
+                    const prefs = JSON.parse(saved)
+                    // Only set if preferences have actual values
+                    if (
+                        prefs.allergies?.length > 0 ||
+                        prefs.halalOnly ||
+                        prefs.vegetarian ||
+                        prefs.vegan ||
+                        prefs.kosher
+                    ) {
+                        setUserPreferences(prefs)
+                    } else {
+                        setUserPreferences(null)
+                    }
+                } catch (e) {
+                    console.error("Error loading preferences:", e)
+                }
+            } else {
+                setUserPreferences(null)
+            }
+        }
+        loadPreferences()
+
+        // Listen for storage changes (when preferences are updated in Profile)
+        const handleStorageChange = (e) => {
+            if (e.key === "userPreferences") {
+                loadPreferences()
+            }
+        }
+        window.addEventListener("storage", handleStorageChange)
+
+        // Listen for custom preferences updated event
+        const handlePreferencesUpdated = () => {
+            loadPreferences()
+        }
+        window.addEventListener("preferencesUpdated", handlePreferencesUpdated)
+
+        // Also check periodically (for same-tab updates)
+        const interval = setInterval(loadPreferences, 1000)
+
+        return () => {
+            window.removeEventListener("storage", handleStorageChange)
+            window.removeEventListener("preferencesUpdated", handlePreferencesUpdated)
+            clearInterval(interval)
+        }
+    }, [])
 
     const handleAddToCart = (product) => {
         addToCart(product)
@@ -18,6 +74,28 @@ const Shop = () => {
 
     const handleCategorySelect = (category) => {
         setSelectedCategory(category)
+    }
+
+    const handleProductClick = (product) => {
+        setSelectedProduct(product)
+        setIsProductDetailOpen(true)
+    }
+
+    const handleCloseProductDetail = () => {
+        setIsProductDetailOpen(false)
+        setSelectedProduct(null)
+    }
+
+    const handleFilterChange = (newFilters) => {
+        setFilters(newFilters)
+    }
+
+    const handleSortChange = (sortBy) => {
+        setFilters({ ...filters, sortBy })
+    }
+
+    const handlePreferencesToggle = (e) => {
+        setFilters({ ...filters, preferencesEnabled: e.target.checked })
     }
 
     return (
@@ -31,6 +109,14 @@ const Shop = () => {
             {/* Cart Sidebar */}
             <CartSidebar />
 
+            {/* Product Detail Modal */}
+            <ProductDetail
+                product={selectedProduct}
+                isOpen={isProductDetailOpen}
+                onClose={handleCloseProductDetail}
+                onAddToCart={handleAddToCart}
+            />
+
             {/* Main Content - Two Column Layout */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="flex flex-col lg:flex-row gap-6">
@@ -41,10 +127,23 @@ const Shop = () => {
 
                     {/* Right Content - Product Grid - 80% width on desktop */}
                     <div className="w-full lg:w-4/5">
+                        {/* Filters */}
+                        <ProductFilters
+                            filters={filters}
+                            onFilterChange={handleFilterChange}
+                            onSortChange={handleSortChange}
+                            preferencesEnabled={filters.preferencesEnabled}
+                            onPreferencesToggle={handlePreferencesToggle}
+                        />
+
+                        {/* Product Grid */}
                         <ProductGrid
                             products={sampleProducts}
                             selectedCategory={selectedCategory}
                             onAddToCart={handleAddToCart}
+                            filters={filters}
+                            onProductClick={handleProductClick}
+                            userPreferences={userPreferences}
                         />
                     </div>
                 </div>
@@ -58,7 +157,7 @@ const Shop = () => {
                             <h3
                                 className="font-bold text-xl mb-4"
                                 style={{ fontFamily: "'Poppins', sans-serif" }}>
-                                FreshExpress
+                                The Filtered Fridge
                             </h3>
                             <p className="text-sm opacity-90">
                                 Your trusted partner for fresh groceries delivered fast
@@ -141,9 +240,7 @@ const Shop = () => {
                         </div>
                     </div>
                     <div className="border-t border-white/20 pt-6 text-center text-sm opacity-80">
-                        <p>
-                            © 2026 FreshExpress - Premium Online Grocery Store. Built with React + Vite + Tailwind CSS
-                        </p>
+                        <p>© 2026 The Filtered Fridge - Your Own Grocery Store.</p>
                     </div>
                 </div>
             </footer>

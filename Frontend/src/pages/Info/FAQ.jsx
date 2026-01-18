@@ -70,7 +70,7 @@ const FAQ = () => {
                     <h1 className="text-4xl md:text-5xl font-bold text-premium-secondary mb-4">
                         Frequently Asked Questions
                     </h1>
-                    <p className="text-xl text-gray-600">Find answers to common questions about FreshExpress</p>
+                    <p className="text-xl text-gray-600">Find answers to common questions about The Filtered Fridge</p>
                 </div>
 
                 {/* FAQ List */}

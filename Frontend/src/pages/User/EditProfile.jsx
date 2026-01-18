@@ -337,8 +337,8 @@ const EditProfile = () => {
             {/* Footer */}
             <footer className="bg-premium-secondary text-white py-8 px-4 sm:px-6 lg:px-8 mt-16">
                 <div className="max-w-7xl mx-auto text-center">
-                    <p className="font-semibold">FreshExpress - Premium Online Grocery Store</p>
-                    <p className="text-sm opacity-80 mt-2">© 2026 FreshExpress. All rights reserved.</p>
+                    <p className="font-semibold">The Filtered Fridge - Premium Online Grocery Store</p>
+                    <p className="text-sm opacity-80 mt-2">© 2026 The Filtered Fridge. All rights reserved.</p>
                 </div>
             </footer>
         </div>

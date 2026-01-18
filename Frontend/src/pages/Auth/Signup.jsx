@@ -95,7 +95,7 @@ const Signup = () => {
                     <h1
                         className="text-premium-secondary font-bold text-4xl mb-2"
                         style={{ fontFamily: "'Poppins', sans-serif" }}>
-                        FreshExpress
+                        The Filtered Fridge
                     </h1>
                     <p className="text-gray-600">Create your account and start shopping!</p>
                 </div>
@@ -437,7 +437,7 @@ const Signup = () => {
 
                 {/* Benefits Section */}
                 <div className="mt-6 bg-white rounded-[--radius-card] shadow-md p-6">
-                    <h3 className="font-bold text-premium-text mb-4 text-center">Why Join FreshExpress?</h3>
+                    <h3 className="font-bold text-premium-text mb-4 text-center">Why Join The Filtered Fridge?</h3>
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
                             <div className="bg-premium-primary text-white rounded-full p-2 flex-shrink-0">

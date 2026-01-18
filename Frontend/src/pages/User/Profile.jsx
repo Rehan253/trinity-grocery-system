@@ -5,9 +5,27 @@ import { sampleOrders, getOrderStatusColor, getOrderStatusIcon } from "../../dat
 import { generateInvoicePDF } from "../../utils/pdfInvoice"
 
 const Profile = () => {
-    const [activeTab, setActiveTab] = useState("orders")
+    const [activeTab, setActiveTab] = useState("preferences")
     const [expandedOrder, setExpandedOrder] = useState(null)
     const [isDownloading, setIsDownloading] = useState(null)
+
+    // Load preferences from localStorage or use defaults
+    const loadPreferences = () => {
+        const saved = localStorage.getItem("userPreferences")
+        if (saved) {
+            return JSON.parse(saved)
+        }
+        return {
+            allergies: [],
+            dietaryPreferences: [],
+            halalOnly: false,
+            vegetarian: false,
+            vegan: false,
+            kosher: false
+        }
+    }
+
+    const [preferences, setPreferences] = useState(loadPreferences)
 
     // Mock user data - replace with actual auth context
     const user = {
@@ -17,6 +35,11 @@ const Profile = () => {
         joinDate: "2025-12-15",
         totalOrders: sampleOrders.length,
         membershipLevel: "Gold"
+    }
+
+    const savePreferences = (newPreferences) => {
+        setPreferences(newPreferences)
+        localStorage.setItem("userPreferences", JSON.stringify(newPreferences))
     }
 
     const toggleOrderExpansion = (orderId) => {
@@ -155,6 +178,15 @@ const Profile = () => {
                         <div className="bg-white rounded-[--radius-card] shadow-md mb-6">
                             <div className="flex border-b border-gray-200">
                                 <button
+                                    onClick={() => setActiveTab("preferences")}
+                                    className={`flex-1 py-4 px-6 font-semibold transition-colors ${
+                                        activeTab === "preferences"
+                                            ? "text-premium-primary border-b-2 border-premium-primary"
+                                            : "text-gray-500 hover:text-premium-secondary"
+                                    }`}>
+                                    Preferences
+                                </button>
+                                <button
                                     onClick={() => setActiveTab("orders")}
                                     className={`flex-1 py-4 px-6 font-semibold transition-colors ${
                                         activeTab === "orders"
@@ -172,17 +204,153 @@ const Profile = () => {
                                     }`}>
                                     Addresses
                                 </button>
-                                <button
-                                    onClick={() => setActiveTab("payments")}
-                                    className={`flex-1 py-4 px-6 font-semibold transition-colors ${
-                                        activeTab === "payments"
-                                            ? "text-premium-primary border-b-2 border-premium-primary"
-                                            : "text-gray-500 hover:text-premium-secondary"
-                                    }`}>
-                                    Payment Methods
-                                </button>
                             </div>
                         </div>
+
+                        {/* Preferences Tab */}
+                        {activeTab === "preferences" && (
+                            <div className="bg-white rounded-[--radius-card] shadow-md p-8">
+                                <h3 className="text-2xl font-bold text-premium-text mb-6">
+                                    Dietary Preferences & Allergies
+                                </h3>
+                                <p className="text-gray-600 mb-6">
+                                    Set your dietary preferences and allergies to see only products that match your
+                                    needs.
+                                </p>
+
+                                <div className="space-y-8">
+                                    {/* Dietary Preferences */}
+                                    <div>
+                                        <h4 className="text-lg font-semibold text-premium-text mb-4">
+                                            Dietary Preferences
+                                        </h4>
+                                        <div className="space-y-3">
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={preferences.halalOnly}
+                                                    onChange={(e) =>
+                                                        savePreferences({
+                                                            ...preferences,
+                                                            halalOnly: e.target.checked
+                                                        })
+                                                    }
+                                                    className="w-5 h-5 text-premium-primary border-gray-300 rounded focus:ring-premium-primary"
+                                                />
+                                                <span className="text-premium-text font-medium">Halal Only</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={preferences.vegetarian}
+                                                    onChange={(e) =>
+                                                        savePreferences({
+                                                            ...preferences,
+                                                            vegetarian: e.target.checked
+                                                        })
+                                                    }
+                                                    className="w-5 h-5 text-premium-primary border-gray-300 rounded focus:ring-premium-primary"
+                                                />
+                                                <span className="text-premium-text font-medium">Vegetarian</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={preferences.vegan}
+                                                    onChange={(e) =>
+                                                        savePreferences({
+                                                            ...preferences,
+                                                            vegan: e.target.checked
+                                                        })
+                                                    }
+                                                    className="w-5 h-5 text-premium-primary border-gray-300 rounded focus:ring-premium-primary"
+                                                />
+                                                <span className="text-premium-text font-medium">Vegan</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={preferences.kosher}
+                                                    onChange={(e) =>
+                                                        savePreferences({
+                                                            ...preferences,
+                                                            kosher: e.target.checked
+                                                        })
+                                                    }
+                                                    className="w-5 h-5 text-premium-primary border-gray-300 rounded focus:ring-premium-primary"
+                                                />
+                                                <span className="text-premium-text font-medium">Kosher</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* Allergies */}
+                                    <div>
+                                        <h4 className="text-lg font-semibold text-premium-text mb-4">Allergies</h4>
+                                        <p className="text-sm text-gray-500 mb-3">
+                                            Select all that apply. Products containing these ingredients will be hidden.
+                                        </p>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            {[
+                                                "Nuts",
+                                                "Peanuts",
+                                                "Dairy",
+                                                "Eggs",
+                                                "Soy",
+                                                "Wheat",
+                                                "Gluten",
+                                                "Shellfish",
+                                                "Fish",
+                                                "Sesame",
+                                                "Sulfites",
+                                                "Lactose"
+                                            ].map((allergy) => (
+                                                <label
+                                                    key={allergy}
+                                                    className="flex items-center gap-2 cursor-pointer p-3 bg-premium-background rounded-lg hover:bg-gray-100 transition-colors">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={preferences.allergies.includes(allergy)}
+                                                        onChange={(e) => {
+                                                            const newAllergies = e.target.checked
+                                                                ? [...preferences.allergies, allergy]
+                                                                : preferences.allergies.filter((a) => a !== allergy)
+                                                            savePreferences({
+                                                                ...preferences,
+                                                                allergies: newAllergies
+                                                            })
+                                                        }}
+                                                        className="w-4 h-4 text-premium-primary border-gray-300 rounded focus:ring-premium-primary"
+                                                    />
+                                                    <span className="text-sm text-premium-text">{allergy}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Save Button */}
+                                    <div className="pt-4 border-t border-gray-200">
+                                        <button
+                                            onClick={() => {
+                                                // Trigger storage event to update Shop page
+                                                window.dispatchEvent(new Event("storage"))
+                                                // Also trigger a custom event
+                                                window.dispatchEvent(
+                                                    new CustomEvent("preferencesUpdated", {
+                                                        detail: preferences
+                                                    })
+                                                )
+                                                alert(
+                                                    "Preferences saved successfully! Products will be filtered based on your preferences."
+                                                )
+                                            }}
+                                            className="bg-premium-primary hover:bg-opacity-90 text-white px-8 py-3 rounded-[--radius-button] font-semibold transition-all duration-200">
+                                            Save Preferences
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Orders List */}
                         {activeTab === "orders" && (
@@ -409,18 +577,6 @@ const Profile = () => {
                                 </button>
                             </div>
                         )}
-
-                        {/* Payment Methods Tab */}
-                        {activeTab === "payments" && (
-                            <div className="bg-white rounded-[--radius-card] shadow-md p-8 text-center">
-                                <div className="text-6xl mb-4">💳</div>
-                                <h3 className="text-xl font-bold text-premium-text mb-2">Payment Methods</h3>
-                                <p className="text-gray-600 mb-6">Your saved payment methods will appear here</p>
-                                <button className="bg-premium-primary hover:bg-opacity-90 text-white px-8 py-3 rounded-[--radius-button] font-semibold transition-all duration-200">
-                                    Add Payment Method
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
             </main>
@@ -428,8 +584,8 @@ const Profile = () => {
             {/* Footer */}
             <footer className="bg-premium-secondary text-white py-8 px-4 sm:px-6 lg:px-8 mt-16">
                 <div className="max-w-7xl mx-auto text-center">
-                    <p className="font-semibold">FreshExpress - Premium Online Grocery Store</p>
-                    <p className="text-sm opacity-80 mt-2">© 2026 FreshExpress. All rights reserved.</p>
+                    <p className="font-semibold">The Filtered Fridge - Premium Online Grocery Store</p>
+                    <p className="text-sm opacity-80 mt-2">© 2026 The Filtered Fridge. All rights reserved.</p>
                 </div>
             </footer>
         </div>

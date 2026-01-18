@@ -73,7 +73,7 @@ const PromoCarousel = () => {
                                 key={offer.id}
                                 className={`min-w-full h-full bg-gradient-to-r ${offer.bgColor} flex items-center justify-between px-6 md:px-12 relative`}>
                                 {/* Left Content */}
-                                <div className="flex items-center gap-4 md:gap-6 flex-1">
+                                <div className="flex items-center gap-4 md:gap-6 flex-1 pr-2 md:pr-4">
                                     <div className="text-5xl md:text-6xl animate-bounce">{offer.icon}</div>
                                     <div className="text-white">
                                         <h3 className="text-lg md:text-2xl font-bold mb-1">{offer.title}</h3>
@@ -82,7 +82,7 @@ const PromoCarousel = () => {
                                 </div>
 
                                 {/* Right CTA Button */}
-                                <div className="hidden md:block">
+                                <div className="hidden md:block flex-shrink-0 mr-12">
                                     <button className="bg-white text-premium-primary px-6 py-3 rounded-[--radius-button] font-bold hover:bg-opacity-90 transition-all duration-200 transform hover:scale-105 shadow-lg">
                                         {offer.cta}
                                     </button>
@@ -94,7 +94,7 @@ const PromoCarousel = () => {
                     {/* Navigation Arrows */}
                     <button
                         onClick={prevSlide}
-                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 text-premium-primary p-2 rounded-full shadow-lg transition-all duration-200 z-10">
+                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-premium-primary p-2 rounded-full shadow-lg transition-all duration-200 z-20">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-5 w-5"
@@ -111,7 +111,7 @@ const PromoCarousel = () => {
                     </button>
                     <button
                         onClick={nextSlide}
-                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 text-premium-primary p-2 rounded-full shadow-lg transition-all duration-200 z-10">
+                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-premium-primary p-2 rounded-full shadow-lg transition-all duration-200 z-20">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-5 w-5"

@@ -9,7 +9,9 @@ const AboutUs = () => {
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 {/* Header */}
                 <div className="text-center mb-12">
-                    <h1 className="text-4xl md:text-5xl font-bold text-premium-secondary mb-4">About FreshExpress</h1>
+                    <h1 className="text-4xl md:text-5xl font-bold text-premium-secondary mb-4">
+                        About The Filtered Fridge
+                    </h1>
                     <p className="text-xl text-gray-600">Your Trusted Partner for Fresh Groceries</p>
                 </div>
 
@@ -20,10 +22,10 @@ const AboutUs = () => {
                         <div>
                             <h2 className="text-2xl font-bold text-premium-secondary mb-3">Our Mission</h2>
                             <p className="text-gray-700 leading-relaxed">
-                                At FreshExpress, we're committed to bringing you the freshest, highest-quality groceries
-                                right to your doorstep. Our mission is to make grocery shopping convenient, affordable,
-                                and enjoyable for everyone. We believe that everyone deserves access to fresh, healthy
-                                food, and we're here to make that happen.
+                                At The Filtered Fridge, we're committed to bringing you the freshest, highest-quality
+                                groceries right to your doorstep. Our mission is to make grocery shopping convenient,
+                                affordable, and enjoyable for everyone. We believe that everyone deserves access to
+                                fresh, healthy food, and we're here to make that happen.
                             </p>
                         </div>
                     </div>
@@ -36,9 +38,9 @@ const AboutUs = () => {
                         <div>
                             <h2 className="text-2xl font-bold text-premium-secondary mb-3">Our Story</h2>
                             <p className="text-gray-700 leading-relaxed mb-4">
-                                FreshExpress was founded in 2020 with a simple vision: to revolutionize the way people
-                                shop for groceries. What started as a small local delivery service has grown into a
-                                trusted online grocery platform serving thousands of customers.
+                                The Filtered Fridge was founded in 2020 with a simple vision: to revolutionize the way
+                                people shop for groceries. What started as a small local delivery service has grown into
+                                a trusted online grocery platform serving thousands of customers.
                             </p>
                             <p className="text-gray-700 leading-relaxed">
                                 We partner with local farmers, trusted suppliers, and quality brands to ensure that
@@ -80,7 +82,7 @@ const AboutUs = () => {
 
                 {/* Why Choose Us */}
                 <div className="bg-gradient-to-r from-premium-primary to-premium-accent text-white rounded-[--radius-card] shadow-lg p-8 mb-8">
-                    <h2 className="text-2xl font-bold mb-6 text-center">Why Choose FreshExpress?</h2>
+                    <h2 className="text-2xl font-bold mb-6 text-center">Why Choose The Filtered Fridge?</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="flex items-start gap-3">
                             <div className="text-2xl">✅</div>

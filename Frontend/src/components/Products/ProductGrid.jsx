@@ -1,9 +1,43 @@
 import ProductCard from "./ProductCard"
+import { filterProductsByPreferences } from "../../utils/productFilters"
 
-const ProductGrid = ({ products, onAddToCart, selectedCategory }) => {
-    // Filter products by category
-    const filteredProducts =
+const ProductGrid = ({ products, onAddToCart, selectedCategory, filters, onProductClick, userPreferences }) => {
+    // Apply category filter
+    let filteredProducts =
         selectedCategory === "All" ? products : products.filter((product) => product.category === selectedCategory)
+
+    // Price filter
+    if (filters?.minPrice !== undefined) {
+        filteredProducts = filteredProducts.filter((product) => product.price >= filters.minPrice)
+    }
+    if (filters?.maxPrice !== undefined) {
+        filteredProducts = filteredProducts.filter((product) => product.price <= filters.maxPrice)
+    }
+
+    // Apply user preferences filter (only if enabled)
+    if (userPreferences && filters?.preferencesEnabled) {
+        filteredProducts = filterProductsByPreferences(filteredProducts, userPreferences)
+    }
+
+    // Sort
+    if (filters?.sortBy) {
+        filteredProducts = [...filteredProducts].sort((a, b) => {
+            switch (filters.sortBy) {
+                case "priceLow":
+                    return a.price - b.price
+                case "priceHigh":
+                    return b.price - a.price
+                case "nameAZ":
+                    return a.name.localeCompare(b.name)
+                case "nameZA":
+                    return b.name.localeCompare(a.name)
+                case "rating":
+                    return (b.rating || 0) - (a.rating || 0)
+                default:
+                    return 0
+            }
+        })
+    }
 
     return (
         <div className="w-full">
@@ -15,15 +49,6 @@ const ProductGrid = ({ products, onAddToCart, selectedCategory }) => {
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">{filteredProducts.length} products available</p>
                 </div>
-
-                {/* Sort Dropdown */}
-                <select className="px-4 py-2 border-2 border-gray-300 rounded-[--radius-button] text-sm font-medium text-premium-text focus:border-premium-primary focus:outline-none">
-                    <option>Sort by: Featured</option>
-                    <option>Price: Low to High</option>
-                    <option>Price: High to Low</option>
-                    <option>Name: A-Z</option>
-                    <option>Newest</option>
-                </select>
             </div>
 
             {/* Product Grid */}
@@ -34,6 +59,7 @@ const ProductGrid = ({ products, onAddToCart, selectedCategory }) => {
                             key={product.id}
                             product={product}
                             onAddToCart={onAddToCart}
+                            onProductClick={onProductClick}
                         />
                     ))}
                 </div>
@@ -41,7 +67,7 @@ const ProductGrid = ({ products, onAddToCart, selectedCategory }) => {
                 <div className="text-center py-16">
                     <div className="text-6xl mb-4">🔍</div>
                     <h3 className="text-xl font-bold text-premium-text mb-2">No products found</h3>
-                    <p className="text-gray-500">Try selecting a different category</p>
+                    <p className="text-gray-500">Try adjusting your filters or selecting a different category</p>
                 </div>
             )}
         </div>

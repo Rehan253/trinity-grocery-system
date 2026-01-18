@@ -66,7 +66,7 @@ const Login = () => {
                     <h1
                         className="text-premium-secondary font-bold text-4xl mb-2"
                         style={{ fontFamily: "'Poppins', sans-serif" }}>
-                        FreshExpress
+                        The Filtered Fridge
                     </h1>
                     <p className="text-gray-600">Welcome back! Sign in to your account</p>
                 </div>
