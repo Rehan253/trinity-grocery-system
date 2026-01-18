@@ -94,7 +94,7 @@ export const sendDelete = async (url, body, baseUrl) => {
 }
 
 const setHeader = () => {
-    const accessToken = sessionStorage.getItem("ACCESS_TOKEN")
+    const accessToken = localStorage.getItem("token") || sessionStorage.getItem("ACCESS_TOKEN")
 
     axios.defaults.withCredentials = true
     axios.defaults.headers.common["Access-Control-Allow-Origin"] = "*"
@@ -104,6 +104,14 @@ const setHeader = () => {
 }
 
 const handleResponse = (response) => {
+    // Handle cases where response is undefined (network error, no response from server)
+    if (!response) {
+        return {
+            status: "Error",
+            errorMessage: "Network error or no response from server"
+        }
+    }
+
     if (response.status === 200 || response.status === 204 || response.status === 201) {
         if (response.data === undefined) {
             return response

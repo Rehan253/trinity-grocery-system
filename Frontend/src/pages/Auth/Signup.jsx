@@ -13,6 +13,10 @@ const Signup = () => {
         password: "",
         confirmPassword: "",
         phone_number: "",
+        address: "",
+        city: "",
+        country: "",
+        zip_code: "",
         agreeToTerms: false
     })
     const [showPassword, setShowPassword] = useState(false)
@@ -70,6 +74,22 @@ const Signup = () => {
             newErrors.phone_number = "Please enter a valid phone number"
         }
 
+        if (!formData.address.trim()) {
+            newErrors.address = "Address is required"
+        }
+
+        if (!formData.city.trim()) {
+            newErrors.city = "City is required"
+        }
+
+        if (!formData.zip_code.trim()) {
+            newErrors.zip_code = "Zip code is required"
+        }
+
+        if (!formData.country.trim()) {
+            newErrors.country = "Country is required"
+        }
+
         if (!formData.password) {
             newErrors.password = "Password is required"
         } else if (formData.password.length < 8) {
@@ -101,7 +121,11 @@ const Signup = () => {
                 last_name: formData.last_name,
                 email: formData.email,
                 password: formData.password,
-                phone_number: formData.phone_number
+                phone_number: formData.phone_number,
+                address: formData.address,
+                city: formData.city,
+                country: formData.country,
+                zip_code: formData.zip_code
             }
 
             const result = await register(registrationData)
@@ -246,6 +270,101 @@ const Signup = () => {
                             {errors.phone_number && (
                                 <p className="text-premium-accent text-xs mt-1">{errors.phone_number}</p>
                             )}
+                        </div>
+
+                        {/* Address Field */}
+                        <div>
+                            <label
+                                htmlFor="address"
+                                className="block text-sm font-semibold text-premium-text mb-2">
+                                Street Address
+                            </label>
+                            <input
+                                type="text"
+                                id="address"
+                                name="address"
+                                value={formData.address}
+                                onChange={handleChange}
+                                className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
+                                    errors.address
+                                        ? "border-premium-accent focus:border-premium-accent"
+                                        : "border-gray-300 focus:border-premium-primary"
+                                }`}
+                                placeholder="123 Main Street"
+                            />
+                            {errors.address && <p className="text-premium-accent text-xs mt-1">{errors.address}</p>}
+                        </div>
+
+                        {/* City and Zip Code Row */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label
+                                    htmlFor="city"
+                                    className="block text-sm font-semibold text-premium-text mb-2">
+                                    City
+                                </label>
+                                <input
+                                    type="text"
+                                    id="city"
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
+                                        errors.city
+                                            ? "border-premium-accent focus:border-premium-accent"
+                                            : "border-gray-300 focus:border-premium-primary"
+                                    }`}
+                                    placeholder="Paris"
+                                />
+                                {errors.city && <p className="text-premium-accent text-xs mt-1">{errors.city}</p>}
+                            </div>
+
+                            <div>
+                                <label
+                                    htmlFor="zip_code"
+                                    className="block text-sm font-semibold text-premium-text mb-2">
+                                    Zip Code
+                                </label>
+                                <input
+                                    type="text"
+                                    id="zip_code"
+                                    name="zip_code"
+                                    value={formData.zip_code}
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
+                                        errors.zip_code
+                                            ? "border-premium-accent focus:border-premium-accent"
+                                            : "border-gray-300 focus:border-premium-primary"
+                                    }`}
+                                    placeholder="75001"
+                                />
+                                {errors.zip_code && (
+                                    <p className="text-premium-accent text-xs mt-1">{errors.zip_code}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Country Field */}
+                        <div>
+                            <label
+                                htmlFor="country"
+                                className="block text-sm font-semibold text-premium-text mb-2">
+                                Country
+                            </label>
+                            <input
+                                type="text"
+                                id="country"
+                                name="country"
+                                value={formData.country}
+                                onChange={handleChange}
+                                className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
+                                    errors.country
+                                        ? "border-premium-accent focus:border-premium-accent"
+                                        : "border-gray-300 focus:border-premium-primary"
+                                }`}
+                                placeholder="France"
+                            />
+                            {errors.country && <p className="text-premium-accent text-xs mt-1">{errors.country}</p>}
                         </div>
 
                         {/* Password Field */}

@@ -39,9 +39,11 @@ const authStore = create(
                         const response = await loginAction(credentials)
                         if (response && response.access_token) {
                             localStorage.setItem("token", response.access_token)
+                            localStorage.setItem("user", JSON.stringify(response.user))
                             set(
                                 {
                                     token: response.access_token,
+                                    user: response.user,
                                     isAuthenticated: true,
                                     isLoading: false,
                                     error: null

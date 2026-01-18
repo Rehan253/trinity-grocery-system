@@ -1,17 +1,25 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Navbar from "../../components/Navbar"
 import { ProductTable, ProductForm } from "../../components/Admin"
-import { sampleProducts } from "../../data/products"
+import productStore from "../../data/Products.jsx"
 
 const ProductManagement = () => {
-    const [products, setProducts] = useState(
-        sampleProducts.map((p) => ({
-            ...p,
-            ingredients: p.ingredients || [] // Ensure ingredients array exists
-        }))
-    )
+    const { products, isLoading, error, fetchProducts, createProduct, updateProduct, deleteProduct, clearError } =
+        productStore()
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [editingProduct, setEditingProduct] = useState(null)
+    const [notification, setNotification] = useState(null)
+
+    // Load products on mount
+    useEffect(() => {
+        fetchProducts()
+    }, [fetchProducts])
+
+    // Show notification
+    const showNotification = (message, type = "success") => {
+        setNotification({ message, type })
+        setTimeout(() => setNotification(null), 3000)
+    }
 
     const handleCreate = () => {
         setEditingProduct(null)
@@ -23,29 +31,44 @@ const ProductManagement = () => {
         setIsFormOpen(true)
     }
 
-    const handleSave = (productData) => {
-        if (editingProduct) {
-            // Update existing product
-            setProducts((prevProducts) =>
-                prevProducts.map((p) =>
-                    p.id === editingProduct.id ? { ...editingProduct, ...productData, id: editingProduct.id } : p
-                )
-            )
-        } else {
-            // Create new product
-            const newProduct = {
-                ...productData,
-                id: Math.max(...products.map((p) => p.id), 0) + 1
+    const handleSave = async (productData) => {
+        try {
+            if (editingProduct) {
+                // Update existing product
+                const result = await updateProduct(editingProduct.id, productData)
+                if (result.success) {
+                    showNotification("Product updated successfully")
+                } else {
+                    showNotification(result.error || "Failed to update product", "error")
+                }
+            } else {
+                // Create new product
+                const result = await createProduct(productData)
+                if (result.success) {
+                    showNotification("Product created successfully")
+                } else {
+                    showNotification(result.error || "Failed to create product", "error")
+                }
             }
-            setProducts((prevProducts) => [...prevProducts, newProduct])
+            setIsFormOpen(false)
+            setEditingProduct(null)
+        } catch (err) {
+            showNotification(err.message || "An error occurred", "error")
         }
-        setIsFormOpen(false)
-        setEditingProduct(null)
     }
 
-    const handleDelete = (productId) => {
+    const handleDelete = async (productId) => {
         if (window.confirm("Are you sure you want to delete this product?")) {
-            setProducts((prevProducts) => prevProducts.filter((p) => p.id !== productId))
+            try {
+                const result = await deleteProduct(productId)
+                if (result.success) {
+                    showNotification("Product deleted successfully")
+                } else {
+                    showNotification(result.error || "Failed to delete product", "error")
+                }
+            } catch (err) {
+                showNotification(err.message || "An error occurred", "error")
+            }
         }
     }
 
@@ -61,9 +84,9 @@ const ProductManagement = () => {
             acc[product.category] = (acc[product.category] || 0) + 1
             return acc
         }, {}),
-        lowStock: products.filter((p) => p.stock < 10).length,
+        lowStock: products.filter((p) => p.quantity_in_stock < 10).length,
         onSale: products.filter((p) => p.discount).length,
-        totalValue: products.reduce((sum, p) => sum + p.price * p.stock, 0)
+        totalValue: products.reduce((sum, p) => sum + p.price * (p.quantity_in_stock || 0), 0)
     }
 
     return (
@@ -71,6 +94,29 @@ const ProductManagement = () => {
             <Navbar />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Notifications */}
+                {notification && (
+                    <div
+                        className={`mb-4 p-4 rounded-[--radius-card] ${
+                            notification.type === "success"
+                                ? "bg-green-100 text-green-700 border border-green-300"
+                                : "bg-red-100 text-red-700 border border-red-300"
+                        }`}>
+                        {notification.message}
+                    </div>
+                )}
+
+                {error && (
+                    <div className="mb-4 p-4 rounded-[--radius-card] bg-red-100 text-red-700 border border-red-300 flex justify-between items-center">
+                        <span>{error}</span>
+                        <button
+                            onClick={() => clearError()}
+                            className="text-sm font-semibold hover:underline">
+                            Dismiss
+                        </button>
+                    </div>
+                )}
+
                 {/* Page Header */}
                 <div className="mb-8 flex items-center justify-between">
                     <div>
@@ -79,7 +125,8 @@ const ProductManagement = () => {
                     </div>
                     <button
                         onClick={handleCreate}
-                        className="bg-premium-primary hover:bg-opacity-90 text-white px-6 py-3 rounded-[--radius-button] font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2">
+                        disabled={isLoading}
+                        className="bg-premium-primary hover:bg-opacity-90 text-white px-6 py-3 rounded-[--radius-button] font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-5 w-5"
@@ -93,7 +140,7 @@ const ProductManagement = () => {
                                 d="M12 4v16m8-8H4"
                             />
                         </svg>
-                        Create Product
+                        {isLoading && products.length === 0 ? "Loading..." : "Create Product"}
                     </button>
                 </div>
 

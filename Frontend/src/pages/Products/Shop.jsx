@@ -5,15 +5,21 @@ import { PromoCarousel } from "../../components/PromoCarousel"
 import { CategorySidebar, ProductGrid, ProductDetail, ProductFilters } from "../../components/Products"
 import { CartSidebar } from "../../components/Cart"
 import { useCart } from "../../context/CartContext"
-import { sampleProducts } from "../../data/products"
+import productStore from "../../data/Products.jsx"
 
 const Shop = () => {
     const { addToCart } = useCart()
+    const { products, isLoading, error, fetchProducts } = productStore()
     const [selectedCategory, setSelectedCategory] = useState("All")
     const [selectedProduct, setSelectedProduct] = useState(null)
     const [isProductDetailOpen, setIsProductDetailOpen] = useState(false)
     const [filters, setFilters] = useState({ preferencesEnabled: true })
     const [userPreferences, setUserPreferences] = useState(null)
+
+    // Load products on mount
+    useEffect(() => {
+        fetchProducts()
+    }, [fetchProducts])
 
     // Load user preferences from localStorage
     useEffect(() => {
@@ -119,34 +125,60 @@ const Shop = () => {
 
             {/* Main Content - Two Column Layout */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="flex flex-col lg:flex-row gap-6">
-                    {/* Left Sidebar - 20% width on desktop */}
-                    <div className="w-full lg:w-1/5 lg:min-w-[250px]">
-                        <CategorySidebar onCategorySelect={handleCategorySelect} />
+                {/* Loading State */}
+                {isLoading && products.length === 0 && (
+                    <div className="flex justify-center items-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-premium-primary"></div>
+                        <span className="ml-4 text-gray-600">Loading products...</span>
                     </div>
+                )}
 
-                    {/* Right Content - Product Grid - 80% width on desktop */}
-                    <div className="w-full lg:w-4/5">
-                        {/* Filters */}
-                        <ProductFilters
-                            filters={filters}
-                            onFilterChange={handleFilterChange}
-                            onSortChange={handleSortChange}
-                            preferencesEnabled={filters.preferencesEnabled}
-                            onPreferencesToggle={handlePreferencesToggle}
-                        />
-
-                        {/* Product Grid */}
-                        <ProductGrid
-                            products={sampleProducts}
-                            selectedCategory={selectedCategory}
-                            onAddToCart={handleAddToCart}
-                            filters={filters}
-                            onProductClick={handleProductClick}
-                            userPreferences={userPreferences}
-                        />
+                {/* Error State */}
+                {error && (
+                    <div className="mb-6 p-4 rounded-[--radius-card] bg-red-100 text-red-700 border border-red-300">
+                        {error}
                     </div>
-                </div>
+                )}
+
+                {/* Products Available */}
+                {products.length > 0 && (
+                    <div className="flex flex-col lg:flex-row gap-6">
+                        {/* Left Sidebar - 20% width on desktop */}
+                        <div className="w-full lg:w-1/5 lg:min-w-[250px]">
+                            <CategorySidebar onCategorySelect={handleCategorySelect} />
+                        </div>
+
+                        {/* Right Content - Product Grid - 80% width on desktop */}
+                        <div className="w-full lg:w-4/5">
+                            {/* Filters */}
+                            <ProductFilters
+                                filters={filters}
+                                onFilterChange={handleFilterChange}
+                                onSortChange={handleSortChange}
+                                preferencesEnabled={filters.preferencesEnabled}
+                                onPreferencesToggle={handlePreferencesToggle}
+                            />
+
+                            {/* Product Grid */}
+                            <ProductGrid
+                                products={products}
+                                selectedCategory={selectedCategory}
+                                onAddToCart={handleAddToCart}
+                                filters={filters}
+                                onProductClick={handleProductClick}
+                                userPreferences={userPreferences}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* No Products State */}
+                {!isLoading && products.length === 0 && !error && (
+                    <div className="text-center py-12">
+                        <h2 className="text-2xl font-semibold text-gray-700">No products available</h2>
+                        <p className="text-gray-500 mt-2">Please try again later or check back soon</p>
+                    </div>
+                )}
             </main>
 
             {/* Footer */}
