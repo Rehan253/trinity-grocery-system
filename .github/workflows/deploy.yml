@@ -41,8 +41,8 @@ jobs:
           docker build \
             -t ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:${{ env.commit_hash }} \
             -t ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest \
-            -f Dockerfile \
-            .
+            -f backend/Dockerfile \
+            backend
 
       # Step 6: Push Docker image to Docker Hub
       #    Uploads both the commit-specific tag and latest tag
@@ -58,7 +58,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,docker-compose.prod.yml"
+          source: "backend/docker-compose.yml,backend/docker-compose.prod.yml"
           target: ${{ secrets.EC2_APP_DIR }}
 
       # Step 8: Deploy to EC2 via SSH
