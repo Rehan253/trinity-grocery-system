@@ -12,8 +12,9 @@ class Config:
     # Database configuration
     # ===============================
 
-    SQLALCHEMY_DATABASE_URI = (
-        "postgresql+psycopg2://trinity_user:trinity123@localhost:5432/trinity_grocery"
+    SQLALCHEMY_DATABASE_URI = os.getenv(
+        "DATABASE_URL",
+        "postgresql+psycopg2://trinity_user:trinity123@localhost:5432/trinity_grocery",
     )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False

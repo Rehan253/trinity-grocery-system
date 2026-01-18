@@ -1,0 +1,95 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Download repository code
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # Step 3: Log in to Docker Hub
+      #    Uses your Docker Hub credentials from GitHub Secrets
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Step 4: Extract git commit hash (for tagging)
+      #    Creates a short tag like "abc1234"
+      - name: Extract git commit hash
+        shell: bash
+        run: echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      # Step 5: Build Docker image
+      #    Builds the image from Dockerfile
+      #    Tags it with: docker_username/repo:commit_hash and :latest
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:${{ env.commit_hash }} \
+            -t ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest \
+            -f Dockerfile \
+            .
+
+      # Step 6: Push Docker image to Docker Hub
+      #    Uploads both the commit-specific tag and latest tag
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:${{ env.commit_hash }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
+
+      # Step 7: Upload compose files to EC2
+      - name: Upload compose files
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml,docker-compose.prod.yml"
+          target: ${{ secrets.EC2_APP_DIR }}
+
+      # Step 8: Deploy to EC2 via SSH
+      #    Connects to EC2 instance and runs docker compose
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            APP_DIR="${{ secrets.EC2_APP_DIR }}"
+            if [ -z "$APP_DIR" ]; then
+              echo "EC2_APP_DIR secret is required."
+              exit 1
+            fi
+
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
+
+            export DOCKER_IMAGE="${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest"
+            export PGUSER="${{ secrets.PGUSER }}"
+            export PGPASSWORD="${{ secrets.PGPASSWORD }}"
+            export PGDATABASE="${{ secrets.PGDATABASE }}"
+            export SECRET_KEY="${{ secrets.SECRET_KEY }}"
+            export JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}"
+
+            echo "Pulling latest image and starting services..."
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "Deployment completed successfully!"
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
