@@ -72,15 +72,23 @@ jobs:
 
       - name: Upload compose files
         run: |
+          cat > /tmp/trinity.env <<EOF
+          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
+          PGUSER=${{ secrets.PGUSER }}
+          PGPASSWORD=${{ secrets.PGPASSWORD }}
+          PGDATABASE=${{ secrets.PGDATABASE }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+          EOF
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
-            backend/docker-compose.yml backend/docker-compose.prod.yml \
+            backend/docker-compose.yml backend/docker-compose.prod.yml /tmp/trinity.env \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ secrets.EC2_APP_DIR }}/
 
       # Step 8: Deploy to EC2 via SSH (native ssh)
       - name: Deploy to EC2 via SSH
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} <<'EOF'
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} <<EOF
           set -e
           APP_DIR="${{ secrets.EC2_APP_DIR }}"
           if [ -z "$APP_DIR" ]; then
@@ -91,16 +99,8 @@ jobs:
           mkdir -p "$APP_DIR"
           cd "$APP_DIR"
 
-          cat > .env <<EOF
-          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
-          PGUSER=${{ secrets.PGUSER }}
-          PGPASSWORD=${{ secrets.PGPASSWORD }}
-          PGDATABASE=${{ secrets.PGDATABASE }}
-          SECRET_KEY=${{ secrets.SECRET_KEY }}
-          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-          EOF
-
           echo "Pulling latest image and starting services..."
+          mv /tmp/trinity.env .env
           docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml pull
           docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 
