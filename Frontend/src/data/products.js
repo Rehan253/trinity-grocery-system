@@ -10,6 +10,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🍎",
         description: "Crisp and sweet red apples",
+        ingredients: ["Apples"],
         stock: 45,
         rating: 4.5,
         reviews: 128
@@ -22,6 +23,7 @@ export const sampleProducts = [
         unit: "bunch",
         icon: "🍌",
         description: "Fresh organic bananas",
+        ingredients: ["Bananas"],
         stock: 67,
         rating: 4.8,
         reviews: 95
@@ -34,6 +36,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🍊",
         description: "Sweet and juicy oranges",
+        ingredients: ["Oranges"],
         stock: 38,
         rating: 4.6,
         reviews: 82
@@ -46,6 +49,7 @@ export const sampleProducts = [
         unit: "pack",
         icon: "🍓",
         description: "Sweet fresh strawberries",
+        ingredients: ["Strawberries"],
         stock: 3,
         rating: 4.9,
         reviews: 156
@@ -60,6 +64,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🥕",
         description: "Fresh organic carrots",
+        ingredients: ["Carrots"],
         stock: 52,
         rating: 4.7,
         reviews: 74
@@ -72,6 +77,7 @@ export const sampleProducts = [
         unit: "head",
         icon: "🥦",
         description: "Green fresh broccoli",
+        ingredients: ["Broccoli"],
         stock: 28,
         rating: 4.5,
         reviews: 63
@@ -84,6 +90,7 @@ export const sampleProducts = [
         unit: "pack",
         icon: "🍅",
         description: "Sweet cherry tomatoes",
+        ingredients: ["Tomatoes"],
         stock: 41,
         rating: 4.8,
         reviews: 112
@@ -96,6 +103,7 @@ export const sampleProducts = [
         unit: "head",
         icon: "🥬",
         description: "Crispy fresh lettuce",
+        ingredients: ["Lettuce"],
         stock: 36,
         rating: 4.4,
         reviews: 58
@@ -110,6 +118,7 @@ export const sampleProducts = [
         unit: "gallon",
         icon: "🥛",
         description: "Fresh organic milk",
+        ingredients: ["Organic Whole Milk"],
         stock: 24,
         rating: 4.7,
         reviews: 145
@@ -124,6 +133,7 @@ export const sampleProducts = [
         unit: "pack",
         icon: "🥛",
         description: "Creamy Greek yogurt",
+        ingredients: ["Milk", "Live Active Cultures"],
         stock: 31,
         rating: 4.8,
         reviews: 203
@@ -136,6 +146,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🧀",
         description: "Sharp cheddar cheese",
+        ingredients: ["Milk", "Salt", "Enzymes", "Annatto"],
         stock: 19,
         rating: 4.6,
         reviews: 87
@@ -148,6 +159,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🧈",
         description: "Creamy fresh butter",
+        ingredients: ["Cream", "Salt"],
         stock: 42,
         rating: 4.5,
         reviews: 76
@@ -162,6 +174,7 @@ export const sampleProducts = [
         unit: "loaf",
         icon: "🍞",
         description: "Fresh whole wheat bread",
+        ingredients: ["Whole Wheat Flour", "Water", "Yeast", "Salt", "Sugar"],
         stock: 15,
         rating: 4.6,
         reviews: 94
@@ -174,6 +187,7 @@ export const sampleProducts = [
         unit: "pack",
         icon: "🥐",
         description: "Buttery croissants",
+        ingredients: ["Wheat Flour", "Butter", "Water", "Yeast", "Sugar", "Salt"],
         stock: 2,
         rating: 4.9,
         reviews: 167
@@ -186,6 +200,7 @@ export const sampleProducts = [
         unit: "pack",
         icon: "🥯",
         description: "Fresh bagels assorted",
+        ingredients: ["Wheat Flour", "Water", "Yeast", "Salt", "Sugar", "Sesame Seeds"],
         stock: 28,
         rating: 4.7,
         reviews: 102
@@ -200,6 +215,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🥩",
         description: "Premium quality beef",
+        ingredients: ["Beef"],
         stock: 12,
         rating: 4.8,
         reviews: 134
@@ -214,6 +230,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🍗",
         description: "Fresh chicken breast",
+        ingredients: ["Chicken Breast"],
         stock: 23,
         rating: 4.7,
         reviews: 156
@@ -226,6 +243,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🦃",
         description: "Lean ground turkey",
+        ingredients: ["Ground Turkey"],
         stock: 18,
         rating: 4.6,
         reviews: 89
@@ -240,6 +258,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🐟",
         description: "Fresh Atlantic salmon",
+        ingredients: ["Atlantic Salmon"],
         stock: 8,
         rating: 4.9,
         reviews: 178
@@ -252,6 +271,7 @@ export const sampleProducts = [
         unit: "lb",
         icon: "🦐",
         description: "Fresh large shrimp",
+        ingredients: ["Shrimp", "Water", "Salt"],
         stock: 14,
         rating: 4.8,
         reviews: 145
@@ -266,6 +286,7 @@ export const sampleProducts = [
         unit: "carton",
         icon: "🧃",
         description: "Fresh squeezed OJ",
+        ingredients: ["Orange Juice", "Vitamin C"],
         stock: 34,
         rating: 4.7,
         reviews: 112
@@ -278,6 +299,7 @@ export const sampleProducts = [
         unit: "box",
         icon: "🍵",
         description: "Premium green tea",
+        ingredients: ["Green Tea Leaves"],
         stock: 47,
         rating: 4.6,
         reviews: 98
@@ -292,6 +314,7 @@ export const sampleProducts = [
         unit: "pack",
         icon: "💧",
         description: "Refreshing sparkling water",
+        ingredients: ["Carbonated Water", "Natural Flavors"],
         stock: 56,
         rating: 4.5,
         reviews: 134
@@ -306,6 +329,7 @@ export const sampleProducts = [
         unit: "bag",
         icon: "🥜",
         description: "Premium mixed nuts",
+        ingredients: ["Almonds", "Cashews", "Walnuts", "Pecans", "Salt"],
         stock: 29,
         rating: 4.7,
         reviews: 156
@@ -318,6 +342,7 @@ export const sampleProducts = [
         unit: "bag",
         icon: "🥔",
         description: "Crispy potato chips",
+        ingredients: ["Potatoes", "Vegetable Oil", "Salt"],
         stock: 43,
         rating: 4.4,
         reviews: 89
@@ -330,6 +355,7 @@ export const sampleProducts = [
         unit: "pack",
         icon: "🍿",
         description: "Buttery popcorn",
+        ingredients: ["Popcorn Kernels", "Butter", "Salt"],
         stock: 38,
         rating: 4.6,
         reviews: 124

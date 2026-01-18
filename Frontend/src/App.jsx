@@ -11,7 +11,9 @@ import {
     AboutUs,
     Contact,
     FAQ,
-    DeliveryInfo
+    DeliveryInfo,
+    UserManagement,
+    ProductManagement
 } from "./pages"
 import { CartProvider } from "./context/CartContext"
 
@@ -76,6 +78,16 @@ function App() {
                     <Route
                         path="/delivery-info"
                         element={<DeliveryInfo />}
+                    />
+
+                    {/* Admin Pages */}
+                    <Route
+                        path="/admin/users"
+                        element={<UserManagement />}
+                    />
+                    <Route
+                        path="/admin/products"
+                        element={<ProductManagement />}
                     />
 
                     {/* Fallback */}

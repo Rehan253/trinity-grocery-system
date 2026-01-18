@@ -12,3 +12,6 @@ export { DeliveryAddress, Payment, OrderConfirmation } from "./Checkout"
 
 // Info module
 export { AboutUs, Contact, FAQ, DeliveryInfo } from "./Info"
+
+// Admin module
+export { UserManagement, ProductManagement } from "./Admin"
