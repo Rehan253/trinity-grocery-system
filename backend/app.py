@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 from flasgger import Swagger
 from flask_jwt_extended import JWTManager
 from routes.product_routes import product_bp
@@ -22,6 +23,14 @@ def create_app():
 
     # Load configuration
     app.config.from_object(Config)
+
+    # Initialize CORS
+    CORS(app, resources={
+        r"/auth/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]},
+        r"/api/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]},
+        r"/products/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]},
+        r"/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]}
+    }, supports_credentials=True)
 
     # Initialize extensions
     db.init_app(app)

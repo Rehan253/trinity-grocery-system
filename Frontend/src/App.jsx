@@ -18,6 +18,7 @@ import {
     PromotionManagement
 } from "./pages"
 import { CartProvider } from "./context/CartContext"
+import ProtectedRoute from "./routes/ProtectedRoute"
 
 function App() {
     return (
@@ -27,6 +28,10 @@ function App() {
                     {/* Shop */}
                     <Route
                         path="/"
+                        element={<Shop />}
+                    />
+                    <Route
+                        path="/products"
                         element={<Shop />}
                     />
 
@@ -40,28 +45,48 @@ function App() {
                         element={<Signup />}
                     />
 
-                    {/* User Profile */}
+                    {/* User Profile (Protected) */}
                     <Route
                         path="/profile"
-                        element={<Profile />}
+                        element={
+                            <ProtectedRoute>
+                                <Profile />
+                            </ProtectedRoute>
+                        }
                     />
                     <Route
                         path="/edit-profile"
-                        element={<EditProfile />}
+                        element={
+                            <ProtectedRoute>
+                                <EditProfile />
+                            </ProtectedRoute>
+                        }
                     />
 
-                    {/* Checkout Flow */}
+                    {/* Checkout Flow (Protected) */}
                     <Route
                         path="/checkout/delivery"
-                        element={<DeliveryAddress />}
+                        element={
+                            <ProtectedRoute>
+                                <DeliveryAddress />
+                            </ProtectedRoute>
+                        }
                     />
                     <Route
                         path="/checkout/payment"
-                        element={<Payment />}
+                        element={
+                            <ProtectedRoute>
+                                <Payment />
+                            </ProtectedRoute>
+                        }
                     />
                     <Route
                         path="/checkout/confirmation"
-                        element={<OrderConfirmation />}
+                        element={
+                            <ProtectedRoute>
+                                <OrderConfirmation />
+                            </ProtectedRoute>
+                        }
                     />
 
                     {/* Info Pages */}
@@ -82,22 +107,38 @@ function App() {
                         element={<DeliveryInfo />}
                     />
 
-                    {/* Admin Pages */}
+                    {/* Admin Pages (Protected) */}
                     <Route
                         path="/admin"
-                        element={<Dashboard />}
+                        element={
+                            <ProtectedRoute>
+                                <Dashboard />
+                            </ProtectedRoute>
+                        }
                     />
                     <Route
                         path="/admin/users"
-                        element={<UserManagement />}
+                        element={
+                            <ProtectedRoute>
+                                <UserManagement />
+                            </ProtectedRoute>
+                        }
                     />
                     <Route
                         path="/admin/products"
-                        element={<ProductManagement />}
+                        element={
+                            <ProtectedRoute>
+                                <ProductManagement />
+                            </ProtectedRoute>
+                        }
                     />
                     <Route
                         path="/admin/promotions"
-                        element={<PromotionManagement />}
+                        element={
+                            <ProtectedRoute>
+                                <PromotionManagement />
+                            </ProtectedRoute>
+                        }
                     />
 
                     {/* Fallback */}

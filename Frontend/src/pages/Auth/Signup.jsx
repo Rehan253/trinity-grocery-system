@@ -1,19 +1,31 @@
-import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import authStore from "../../data/Auth"
 
 const Signup = () => {
+    const navigate = useNavigate()
+    const { register, isLoading, error: storeError } = authStore()
+
     const [formData, setFormData] = useState({
-        fullName: "",
+        first_name: "",
+        last_name: "",
         email: "",
         password: "",
         confirmPassword: "",
-        phone: "",
+        phone_number: "",
         agreeToTerms: false
     })
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [errors, setErrors] = useState({})
-    const [isLoading, setIsLoading] = useState(false)
+    const [apiError, setApiError] = useState("")
+    const [successMessage, setSuccessMessage] = useState("")
+
+    useEffect(() => {
+        if (storeError) {
+            setApiError(storeError)
+        }
+    }, [storeError])
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target
@@ -28,15 +40,22 @@ const Signup = () => {
                 [name]: ""
             }))
         }
+        setApiError("")
     }
 
     const validateForm = () => {
         const newErrors = {}
 
-        if (!formData.fullName.trim()) {
-            newErrors.fullName = "Full name is required"
-        } else if (formData.fullName.trim().length < 2) {
-            newErrors.fullName = "Name must be at least 2 characters"
+        if (!formData.first_name.trim()) {
+            newErrors.first_name = "First name is required"
+        } else if (formData.first_name.trim().length < 2) {
+            newErrors.first_name = "Name must be at least 2 characters"
+        }
+
+        if (!formData.last_name.trim()) {
+            newErrors.last_name = "Last name is required"
+        } else if (formData.last_name.trim().length < 2) {
+            newErrors.last_name = "Last name must be at least 2 characters"
         }
 
         if (!formData.email) {
@@ -45,10 +64,10 @@ const Signup = () => {
             newErrors.email = "Please enter a valid email"
         }
 
-        if (!formData.phone) {
-            newErrors.phone = "Phone number is required"
-        } else if (!/^\+?[\d\s-()]+$/.test(formData.phone)) {
-            newErrors.phone = "Please enter a valid phone number"
+        if (!formData.phone_number) {
+            newErrors.phone_number = "Phone number is required"
+        } else if (!/^\+?[\d\s-()]+$/.test(formData.phone_number)) {
+            newErrors.phone_number = "Please enter a valid phone number"
         }
 
         if (!formData.password) {
@@ -77,13 +96,21 @@ const Signup = () => {
         e.preventDefault()
 
         if (validateForm()) {
-            setIsLoading(true)
-            // Simulate API call
-            setTimeout(() => {
-                console.log("Signup data:", formData)
-                // Add your signup logic here
-                setIsLoading(false)
-            }, 1500)
+            const registrationData = {
+                first_name: formData.first_name,
+                last_name: formData.last_name,
+                email: formData.email,
+                password: formData.password,
+                phone_number: formData.phone_number
+            }
+
+            const result = await register(registrationData)
+            if (result.success) {
+                setSuccessMessage("Registration successful! Redirecting to login...")
+                setTimeout(() => {
+                    navigate("/login")
+                }, 2000)
+            }
         }
     }
 
@@ -104,30 +131,73 @@ const Signup = () => {
                 <div className="bg-white rounded-[--radius-card] shadow-lg p-8">
                     <h2 className="text-2xl font-bold text-premium-text mb-6">Create Account</h2>
 
+                    {/* Success Alert */}
+                    {successMessage && (
+                        <div className="mb-4 p-3 bg-green-100 border border-green-400 rounded-lg">
+                            <p className="text-green-800 text-sm font-semibold">{successMessage}</p>
+                        </div>
+                    )}
+
+                    {/* API Error Alert */}
+                    {apiError && (
+                        <div className="mb-4 p-3 bg-premium-accent bg-opacity-10 border border-premium-accent rounded-lg">
+                            <p className="text-premium-accent text-sm font-semibold">{apiError}</p>
+                        </div>
+                    )}
+
                     <form
                         onSubmit={handleSubmit}
                         className="space-y-4">
-                        {/* Full Name Field */}
-                        <div>
-                            <label
-                                htmlFor="fullName"
-                                className="block text-sm font-semibold text-premium-text mb-2">
-                                Full Name
-                            </label>
-                            <input
-                                type="text"
-                                id="fullName"
-                                name="fullName"
-                                value={formData.fullName}
-                                onChange={handleChange}
-                                className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                                    errors.fullName
-                                        ? "border-premium-accent focus:border-premium-accent"
-                                        : "border-gray-300 focus:border-premium-primary"
-                                }`}
-                                placeholder="John Doe"
-                            />
-                            {errors.fullName && <p className="text-premium-accent text-xs mt-1">{errors.fullName}</p>}
+                        {/* First Name Field */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label
+                                    htmlFor="first_name"
+                                    className="block text-sm font-semibold text-premium-text mb-2">
+                                    First Name
+                                </label>
+                                <input
+                                    type="text"
+                                    id="first_name"
+                                    name="first_name"
+                                    value={formData.first_name}
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
+                                        errors.first_name
+                                            ? "border-premium-accent focus:border-premium-accent"
+                                            : "border-gray-300 focus:border-premium-primary"
+                                    }`}
+                                    placeholder="John"
+                                />
+                                {errors.first_name && (
+                                    <p className="text-premium-accent text-xs mt-1">{errors.first_name}</p>
+                                )}
+                            </div>
+
+                            {/* Last Name Field */}
+                            <div>
+                                <label
+                                    htmlFor="last_name"
+                                    className="block text-sm font-semibold text-premium-text mb-2">
+                                    Last Name
+                                </label>
+                                <input
+                                    type="text"
+                                    id="last_name"
+                                    name="last_name"
+                                    value={formData.last_name}
+                                    onChange={handleChange}
+                                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
+                                        errors.last_name
+                                            ? "border-premium-accent focus:border-premium-accent"
+                                            : "border-gray-300 focus:border-premium-primary"
+                                    }`}
+                                    placeholder="Doe"
+                                />
+                                {errors.last_name && (
+                                    <p className="text-premium-accent text-xs mt-1">{errors.last_name}</p>
+                                )}
+                            </div>
                         </div>
 
                         {/* Email Field */}
@@ -156,24 +226,26 @@ const Signup = () => {
                         {/* Phone Field */}
                         <div>
                             <label
-                                htmlFor="phone"
+                                htmlFor="phone_number"
                                 className="block text-sm font-semibold text-premium-text mb-2">
                                 Phone Number
                             </label>
                             <input
                                 type="tel"
-                                id="phone"
-                                name="phone"
-                                value={formData.phone}
+                                id="phone_number"
+                                name="phone_number"
+                                value={formData.phone_number}
                                 onChange={handleChange}
                                 className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
-                                    errors.phone
+                                    errors.phone_number
                                         ? "border-premium-accent focus:border-premium-accent"
                                         : "border-gray-300 focus:border-premium-primary"
                                 }`}
                                 placeholder="+1 (555) 123-4567"
                             />
-                            {errors.phone && <p className="text-premium-accent text-xs mt-1">{errors.phone}</p>}
+                            {errors.phone_number && (
+                                <p className="text-premium-accent text-xs mt-1">{errors.phone_number}</p>
+                            )}
                         </div>
 
                         {/* Password Field */}

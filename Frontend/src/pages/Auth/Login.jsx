@@ -1,14 +1,24 @@
-import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import authStore from "../../data/Auth"
 
 const Login = () => {
+    const navigate = useNavigate()
+    const { login, isLoading, error: storeError } = authStore()
+
     const [formData, setFormData] = useState({
         email: "",
         password: ""
     })
     const [showPassword, setShowPassword] = useState(false)
     const [errors, setErrors] = useState({})
-    const [isLoading, setIsLoading] = useState(false)
+    const [apiError, setApiError] = useState("")
+
+    useEffect(() => {
+        if (storeError) {
+            setApiError(storeError)
+        }
+    }, [storeError])
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -23,6 +33,7 @@ const Login = () => {
                 [name]: ""
             }))
         }
+        setApiError("")
     }
 
     const validateForm = () => {
@@ -48,13 +59,12 @@ const Login = () => {
         e.preventDefault()
 
         if (validateForm()) {
-            setIsLoading(true)
-            // Simulate API call
-            setTimeout(() => {
-                console.log("Login data:", formData)
-                // Add your login logic here
-                setIsLoading(false)
-            }, 1500)
+            const result = await login(formData)
+            if (result.success) {
+                // Clear form and redirect
+                setFormData({ email: "", password: "" })
+                navigate("/products")
+            }
         }
     }
 
@@ -74,6 +84,13 @@ const Login = () => {
                 {/* Login Card */}
                 <div className="bg-white rounded-[--radius-card] shadow-lg p-8">
                     <h2 className="text-2xl font-bold text-premium-text mb-6">Sign In</h2>
+
+                    {/* API Error Alert */}
+                    {apiError && (
+                        <div className="mb-4 p-3 bg-premium-accent bg-opacity-10 border border-premium-accent rounded-lg">
+                            <p className="text-premium-accent text-sm font-semibold">{apiError}</p>
+                        </div>
+                    )}
 
                     <form
                         onSubmit={handleSubmit}

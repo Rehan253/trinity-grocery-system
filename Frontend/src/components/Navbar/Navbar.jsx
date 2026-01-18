@@ -1,15 +1,25 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useCart } from "../../context/CartContext"
+import authStore from "../../data/Auth"
 
 const Navbar = () => {
+    const navigate = useNavigate()
     const { cartCount, toggleCart } = useCart()
+    const { isAuthenticated, user, logout } = authStore()
+    const [showProfileMenu, setShowProfileMenu] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
 
     const handleSearch = (e) => {
         e.preventDefault()
         console.log("Searching for:", searchQuery)
         // Add your search logic here
+    }
+
+    const handleLogout = () => {
+        logout()
+        setShowProfileMenu(false)
+        navigate("/login")
     }
 
     return (
@@ -63,24 +73,67 @@ const Navbar = () => {
 
                     {/* Right - Profile & Cart Icons */}
                     <div className="flex items-center gap-4">
-                        {/* Profile Icon */}
-                        <Link
-                            to="/profile"
-                            className="p-2 hover:bg-white/20 rounded-full transition-colors duration-200">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-7 w-7 text-white"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                />
-                            </svg>
-                        </Link>
+                        {/* Auth Links */}
+                        {!isAuthenticated ? (
+                            <>
+                                <Link
+                                    to="/login"
+                                    className="px-4 py-2 text-white hover:bg-white/20 rounded-lg transition-colors duration-200 text-sm font-semibold">
+                                    Sign In
+                                </Link>
+                                <Link
+                                    to="/signup"
+                                    className="px-4 py-2 bg-premium-primary hover:bg-opacity-90 text-white rounded-lg transition-colors duration-200 text-sm font-semibold">
+                                    Sign Up
+                                </Link>
+                            </>
+                        ) : (
+                            <>
+                                {/* Profile Menu */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowProfileMenu(!showProfileMenu)}
+                                        className="p-2 hover:bg-white/20 rounded-full transition-colors duration-200">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-7 w-7 text-white"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                            />
+                                        </svg>
+                                    </button>
+
+                                    {/* Dropdown Menu */}
+                                    {showProfileMenu && (
+                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-50">
+                                            <div className="px-4 py-2 border-b">
+                                                <p className="text-sm font-semibold text-premium-text">
+                                                    {user?.first_name} {user?.last_name}
+                                                </p>
+                                                <p className="text-xs text-gray-600">{user?.email}</p>
+                                            </div>
+                                            <Link
+                                                to="/profile"
+                                                onClick={() => setShowProfileMenu(false)}
+                                                className="block px-4 py-2 text-sm text-premium-text hover:bg-gray-100 transition-colors">
+                                                My Profile
+                                            </Link>
+                                            <button
+                                                onClick={handleLogout}
+                                                className="w-full text-left px-4 py-2 text-sm text-premium-accent hover:bg-gray-100 transition-colors font-semibold">
+                                                Sign Out
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
 
                         {/* Cart Icon */}
                         <button
