@@ -52,12 +52,26 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
 
       # Step 7: Upload compose files to EC2
+      - name: Verify SSH secret
+        run: |
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "SSH_PRIVATE_KEY is empty or missing."
+            exit 1
+          fi
+
+      - name: Prepare SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
       - name: Upload compose files
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key_path: ~/.ssh/id_ed25519
           source: "backend/docker-compose.yml,backend/docker-compose.prod.yml"
           target: ${{ secrets.EC2_APP_DIR }}
 
