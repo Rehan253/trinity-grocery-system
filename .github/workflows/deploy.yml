@@ -71,6 +71,9 @@ jobs:
         run: |
           cat > /tmp/trinity.env <<EOF
           DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
+          POSTGRES_USER=${{ secrets.PGUSER }}
+          POSTGRES_PASSWORD=${{ secrets.PGPASSWORD }}
+          POSTGRES_DB=${{ secrets.PGDATABASE }}
           PGUSER=${{ secrets.PGUSER }}
           PGPASSWORD=${{ secrets.PGPASSWORD }}
           PGDATABASE=${{ secrets.PGDATABASE }}
