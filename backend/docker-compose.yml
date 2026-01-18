@@ -50,7 +50,6 @@ services:
     volumes:
       # Mount current directory for live code reloading during development
       - .:/app
-    command: ["/app/entrypoint.sh"]
     healthcheck:
       # Check if Flask API is responding
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
