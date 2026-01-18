@@ -12,8 +12,10 @@ import {
     Contact,
     FAQ,
     DeliveryInfo,
+    Dashboard,
     UserManagement,
-    ProductManagement
+    ProductManagement,
+    PromotionManagement
 } from "./pages"
 import { CartProvider } from "./context/CartContext"
 
@@ -82,12 +84,20 @@ function App() {
 
                     {/* Admin Pages */}
                     <Route
+                        path="/admin"
+                        element={<Dashboard />}
+                    />
+                    <Route
                         path="/admin/users"
                         element={<UserManagement />}
                     />
                     <Route
                         path="/admin/products"
                         element={<ProductManagement />}
+                    />
+                    <Route
+                        path="/admin/promotions"
+                        element={<PromotionManagement />}
                     />
 
                     {/* Fallback */}
