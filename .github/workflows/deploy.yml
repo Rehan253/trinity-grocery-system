@@ -7,16 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
-      EC2_HOST: ${{ secrets.EC2_HOST }}
-      EC2_USER: ${{ secrets.EC2_USER }}
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      PGUSER: ${{ secrets.PGUSER }}
-      PGPASSWORD: ${{ secrets.PGPASSWORD }}
-      PGDATABASE: ${{ secrets.PGDATABASE }}
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
 
     steps:
       # Step 1: Download repository code
@@ -30,7 +20,6 @@ jobs:
           python-version: '3.11'
 
       # Step 3: Log in to Docker Hub
-      #    Uses your Docker Hub credentials from GitHub Secrets
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -38,14 +27,11 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       # Step 4: Extract git commit hash (for tagging)
-      #    Creates a short tag like "abc1234"
       - name: Extract git commit hash
         shell: bash
         run: echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       # Step 5: Build Docker image
-      #    Builds the image from Dockerfile
-      #    Tags it with: docker_username/repo:commit_hash and :latest
       - name: Build Docker image
         run: |
           docker build \
@@ -55,13 +41,12 @@ jobs:
             backend
 
       # Step 6: Push Docker image to Docker Hub
-      #    Uploads both the commit-specific tag and latest tag
       - name: Push Docker image to Docker Hub
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:${{ env.commit_hash }}
           docker push ${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
 
-      # Step 7: Upload compose files to EC2 (native scp)
+      # Step 7: Verify SSH secret
       - name: Verify SSH secret
         run: |
           if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
@@ -72,57 +57,43 @@ jobs:
             echo "SSH_PRIVATE_KEY does not look like a private key."
             exit 1
           fi
-          if [ -z "$EC2_APP_DIR" ]; then
-            echo "EC2_APP_DIR is empty or missing."
-            exit 1
-          fi
-          if [ -z "$EC2_HOST" ]; then
-            echo "EC2_HOST is empty or missing."
-            exit 1
-          fi
-          if [ -z "$EC2_USER" ]; then
-            echo "EC2_USER is empty or missing."
-            exit 1
-          fi
 
+      # Step 8: Prepare SSH key
       - name: Prepare SSH key
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Upload compose files
+      # Step 9: Create environment file and upload to EC2
+      - name: Upload compose files and env
         run: |
           cat > /tmp/trinity.env <<EOF
-          DOCKER_IMAGE=${DOCKER_USERNAME}/trinity-grocery-api:latest
-          PGUSER=${PGUSER}
-          PGPASSWORD=${PGPASSWORD}
-          PGDATABASE=${PGDATABASE}
-          SECRET_KEY=${SECRET_KEY}
-          JWT_SECRET_KEY=${JWT_SECRET_KEY}
+          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
+          PGUSER=${{ secrets.PGUSER }}
+          PGPASSWORD=${{ secrets.PGPASSWORD }}
+          PGDATABASE=${{ secrets.PGDATABASE }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
           EOF
-          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
             backend/docker-compose.yml backend/docker-compose.prod.yml /tmp/trinity.env \
-            ${EC2_USER}@${EC2_HOST}:${EC2_APP_DIR}/
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ secrets.EC2_APP_DIR }}/
 
-      # Step 8: Deploy to EC2 via SSH (native ssh)
+      # Step 10: Deploy to EC2 via SSH
       - name: Deploy to EC2 via SSH
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
-            ${EC2_USER}@${EC2_HOST} <<EOF
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} <<'EOF'
           set -e
-          APP_DIR="${EC2_APP_DIR}"
-          if [ -z "$APP_DIR" ]; then
-            echo "EC2_APP_DIR secret is required."
-            exit 1
-          fi
+          APP_DIR="${{ secrets.EC2_APP_DIR }}"
 
           mkdir -p "$APP_DIR"
           cd "$APP_DIR"
 
           echo "Pulling latest image and starting services..."
-          mv /tmp/trinity.env .env
+          mv trinity.env .env
           docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml pull
           docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 
