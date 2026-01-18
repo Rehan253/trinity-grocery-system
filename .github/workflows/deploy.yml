@@ -7,6 +7,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      PGUSER: ${{ secrets.PGUSER }}
+      PGPASSWORD: ${{ secrets.PGPASSWORD }}
+      PGDATABASE: ${{ secrets.PGDATABASE }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
 
     steps:
       # Step 1: Download repository code
@@ -62,35 +72,47 @@ jobs:
             echo "SSH_PRIVATE_KEY does not look like a private key."
             exit 1
           fi
+          if [ -z "$EC2_APP_DIR" ]; then
+            echo "EC2_APP_DIR is empty or missing."
+            exit 1
+          fi
+          if [ -z "$EC2_HOST" ]; then
+            echo "EC2_HOST is empty or missing."
+            exit 1
+          fi
+          if [ -z "$EC2_USER" ]; then
+            echo "EC2_USER is empty or missing."
+            exit 1
+          fi
 
       - name: Prepare SSH key
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload compose files
         run: |
           cat > /tmp/trinity.env <<EOF
-          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/trinity-grocery-api:latest
-          PGUSER=${{ secrets.PGUSER }}
-          PGPASSWORD=${{ secrets.PGPASSWORD }}
-          PGDATABASE=${{ secrets.PGDATABASE }}
-          SECRET_KEY=${{ secrets.SECRET_KEY }}
-          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+          DOCKER_IMAGE=${DOCKER_USERNAME}/trinity-grocery-api:latest
+          PGUSER=${PGUSER}
+          PGPASSWORD=${PGPASSWORD}
+          PGDATABASE=${PGDATABASE}
+          SECRET_KEY=${SECRET_KEY}
+          JWT_SECRET_KEY=${JWT_SECRET_KEY}
           EOF
           scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
             backend/docker-compose.yml backend/docker-compose.prod.yml /tmp/trinity.env \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ secrets.EC2_APP_DIR }}/
+            ${EC2_USER}@${EC2_HOST}:${EC2_APP_DIR}/
 
       # Step 8: Deploy to EC2 via SSH (native ssh)
       - name: Deploy to EC2 via SSH
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} <<EOF
+            ${EC2_USER}@${EC2_HOST} <<EOF
           set -e
-          APP_DIR="${{ secrets.EC2_APP_DIR }}"
+          APP_DIR="${EC2_APP_DIR}"
           if [ -z "$APP_DIR" ]; then
             echo "EC2_APP_DIR secret is required."
             exit 1
