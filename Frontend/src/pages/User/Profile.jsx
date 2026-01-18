@@ -2,10 +2,12 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import Navbar from "../../components/Navbar"
 import { sampleOrders, getOrderStatusColor, getOrderStatusIcon } from "../../data/orders"
+import jsPDF from "jspdf"
 
 const Profile = () => {
     const [activeTab, setActiveTab] = useState("orders")
     const [expandedOrder, setExpandedOrder] = useState(null)
+    const [isDownloading, setIsDownloading] = useState(null)
 
     // Mock user data - replace with actual auth context
     const user = {
@@ -29,9 +31,142 @@ const Profile = () => {
         })
     }
 
+    const downloadInvoice = (order) => {
+        setIsDownloading(order.id)
+        // Small delay to show loading state
+        setTimeout(() => {
+            // Create new PDF document
+            const doc = new jsPDF()
+
+            // Set colors
+            const primaryColor = [255, 107, 53] // #FF6B35
+            const secondaryColor = [0, 78, 137] // #004E89
+            const textColor = [26, 26, 26] // #1A1A1A
+
+            // Calculate order details
+            const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+            const tax = subtotal * 0.1 // 10% tax
+            const shipping = order.total - subtotal - tax
+
+            // Header - Company Name
+            doc.setFillColor(...primaryColor)
+            doc.rect(0, 0, 210, 40, "F")
+            doc.setTextColor(255, 255, 255)
+            doc.setFontSize(28)
+            doc.setFont("helvetica", "bold")
+            doc.text("FreshExpress", 105, 25, { align: "center" })
+            doc.setFontSize(12)
+            doc.setFont("helvetica", "normal")
+            doc.text("Premium Online Grocery Store", 105, 33, { align: "center" })
+
+            // Order Title
+            doc.setTextColor(...secondaryColor)
+            doc.setFontSize(22)
+            doc.setFont("helvetica", "bold")
+            doc.text("Order Invoice", 20, 55)
+
+            // Order Details Box
+            doc.setTextColor(...textColor)
+            doc.setFontSize(11)
+            doc.setFont("helvetica", "normal")
+            doc.text(`Order Number: ${order.id}`, 20, 70)
+            doc.text(`Order Date: ${formatDate(order.date)}`, 20, 77)
+            doc.text(`Status: ${order.status.charAt(0).toUpperCase() + order.status.slice(1)}`, 20, 84)
+
+            // Delivery Address
+            doc.setFont("helvetica", "bold")
+            doc.text("Delivery Address:", 20, 97)
+            doc.setFont("helvetica", "normal")
+            const addressLines = order.deliveryAddress.split(",")
+            let addressY = 104
+            addressLines.forEach((line) => {
+                doc.text(line.trim(), 20, addressY)
+                addressY += 7
+            })
+
+            // Order Items Table Header
+            const startY = addressY + 10
+            doc.setFillColor(...secondaryColor)
+            doc.rect(20, startY, 170, 10, "F")
+            doc.setTextColor(255, 255, 255)
+            doc.setFont("helvetica", "bold")
+            doc.setFontSize(10)
+            doc.text("Item", 25, startY + 7)
+            doc.text("Qty", 120, startY + 7)
+            doc.text("Price", 145, startY + 7)
+            doc.text("Total", 170, startY + 7)
+
+            // Order Items
+            doc.setTextColor(...textColor)
+            doc.setFont("helvetica", "normal")
+            let currentY = startY + 15
+            order.items.forEach((item) => {
+                if (currentY > 270) {
+                    doc.addPage()
+                    currentY = 20
+                }
+                doc.text(item.name, 25, currentY)
+                doc.text(item.quantity.toString(), 125, currentY, { align: "center" })
+                doc.text(`$${item.price.toFixed(2)}`, 150, currentY, { align: "center" })
+                doc.text(`$${(item.price * item.quantity).toFixed(2)}`, 175, currentY, { align: "center" })
+                currentY += 7
+            })
+
+            // Summary
+            currentY += 10
+            doc.setDrawColor(200, 200, 200)
+            doc.line(120, currentY, 190, currentY)
+
+            currentY += 8
+            doc.text("Subtotal:", 120, currentY)
+            doc.text(`$${subtotal.toFixed(2)}`, 175, currentY, { align: "center" })
+
+            currentY += 7
+            doc.text("Tax (10%):", 120, currentY)
+            doc.text(`$${tax.toFixed(2)}`, 175, currentY, { align: "center" })
+
+            currentY += 7
+            doc.text("Shipping:", 120, currentY)
+            doc.text(shipping === 0 ? "FREE" : `$${shipping.toFixed(2)}`, 175, currentY, {
+                align: "center"
+            })
+
+            currentY += 10
+            doc.setDrawColor(...secondaryColor)
+            doc.setLineWidth(0.5)
+            doc.line(120, currentY, 190, currentY)
+
+            currentY += 8
+            doc.setFont("helvetica", "bold")
+            doc.setFontSize(12)
+            doc.text("Total:", 120, currentY)
+            doc.setTextColor(...primaryColor)
+            doc.text(`$${order.total.toFixed(2)}`, 175, currentY, { align: "center" })
+
+            // Payment Method
+            currentY += 15
+            doc.setTextColor(...textColor)
+            doc.setFontSize(10)
+            doc.setFont("helvetica", "bold")
+            doc.text("Payment Method:", 20, currentY)
+            doc.setFont("helvetica", "normal")
+            doc.text(order.paymentMethod || "Credit/Debit Card", 60, currentY)
+
+            // Footer
+            doc.setFontSize(9)
+            doc.setTextColor(150, 150, 150)
+            doc.text("Thank you for shopping with FreshExpress!", 105, 280, { align: "center" })
+            doc.text("For support: support@freshexpress.com | +1 (555) 123-4567", 105, 286, { align: "center" })
+
+            // Save PDF
+            doc.save(`FreshExpress-Invoice-${order.id}.pdf`)
+            setIsDownloading(null)
+        }, 300)
+    }
+
     return (
         <div className="min-h-screen bg-premium-background">
-            <Navbar cartCount={0} />
+            <Navbar />
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Page Header */}
@@ -313,30 +448,58 @@ const Profile = () => {
                                                     </div>
 
                                                     {/* Order Actions */}
-                                                    <div className="flex gap-3">
-                                                        {order.status === "delivered" && (
-                                                            <>
-                                                                <button className="flex-1 bg-premium-primary hover:bg-opacity-90 text-white py-2 px-4 rounded-[--radius-button] font-semibold transition-all duration-200">
-                                                                    Reorder
-                                                                </button>
-                                                                <button className="flex-1 bg-white border-2 border-gray-300 hover:border-premium-secondary text-premium-text py-2 px-4 rounded-[--radius-button] font-semibold transition-all duration-200">
-                                                                    Leave Review
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                        {order.status === "shipped" && (
-                                                            <button className="flex-1 bg-premium-secondary hover:bg-opacity-90 text-white py-2 px-4 rounded-[--radius-button] font-semibold transition-all duration-200">
-                                                                Track Order
-                                                            </button>
-                                                        )}
+                                                    <div className="flex justify-center gap-3">
                                                         {order.status === "processing" && (
                                                             <button className="flex-1 bg-premium-accent hover:bg-opacity-90 text-white py-2 px-4 rounded-[--radius-button] font-semibold transition-all duration-200">
                                                                 Cancel Order
                                                             </button>
                                                         )}
-                                                        <button className="px-6 bg-white border-2 border-gray-300 hover:border-premium-secondary text-premium-text py-2 rounded-[--radius-button] font-semibold transition-all duration-200">
-                                                            View Invoice
-                                                        </button>
+                                                        {order.status !== "cancelled" && (
+                                                            <button
+                                                                onClick={() => downloadInvoice(order)}
+                                                                disabled={isDownloading === order.id}
+                                                                className="px-6 bg-premium-accent hover:bg-opacity-90 text-white py-2 rounded-[--radius-button] font-semibold transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                                {isDownloading === order.id ? (
+                                                                    <>
+                                                                        <svg
+                                                                            className="animate-spin h-5 w-5"
+                                                                            xmlns="http://www.w3.org/2000/svg"
+                                                                            fill="none"
+                                                                            viewBox="0 0 24 24">
+                                                                            <circle
+                                                                                className="opacity-25"
+                                                                                cx="12"
+                                                                                cy="12"
+                                                                                r="10"
+                                                                                stroke="currentColor"
+                                                                                strokeWidth="4"></circle>
+                                                                            <path
+                                                                                className="opacity-75"
+                                                                                fill="currentColor"
+                                                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                        </svg>
+                                                                        Generating...
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <svg
+                                                                            xmlns="http://www.w3.org/2000/svg"
+                                                                            className="h-5 w-5"
+                                                                            fill="none"
+                                                                            viewBox="0 0 24 24"
+                                                                            stroke="currentColor">
+                                                                            <path
+                                                                                strokeLinecap="round"
+                                                                                strokeLinejoin="round"
+                                                                                strokeWidth={2}
+                                                                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                                                            />
+                                                                        </svg>
+                                                                        Download Invoice
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}

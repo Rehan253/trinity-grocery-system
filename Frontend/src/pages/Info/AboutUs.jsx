@@ -41,10 +41,10 @@ const AboutUs = () => {
                                 trusted online grocery platform serving thousands of customers.
                             </p>
                             <p className="text-gray-700 leading-relaxed">
-                                We partner with local farmers, trusted suppliers, and quality brands to ensure that every
-                                product in our store meets our high standards. Our team works tirelessly to source the
-                                best products at competitive prices, all while maintaining our commitment to freshness
-                                and quality.
+                                We partner with local farmers, trusted suppliers, and quality brands to ensure that
+                                every product in our store meets our high standards. Our team works tirelessly to source
+                                the best products at competitive prices, all while maintaining our commitment to
+                                freshness and quality.
                             </p>
                         </div>
                     </div>
@@ -86,28 +86,36 @@ const AboutUs = () => {
                             <div className="text-2xl">✅</div>
                             <div>
                                 <h3 className="font-bold mb-1">Fresh Products Daily</h3>
-                                <p className="text-sm opacity-90">We restock our inventory daily to ensure maximum freshness.</p>
+                                <p className="text-sm opacity-90">
+                                    We restock our inventory daily to ensure maximum freshness.
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="text-2xl">✅</div>
                             <div>
                                 <h3 className="font-bold mb-1">Competitive Prices</h3>
-                                <p className="text-sm opacity-90">Best prices guaranteed with regular deals and discounts.</p>
+                                <p className="text-sm opacity-90">
+                                    Best prices guaranteed with regular deals and discounts.
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="text-2xl">✅</div>
                             <div>
                                 <h3 className="font-bold mb-1">Easy Returns</h3>
-                                <p className="text-sm opacity-90">100% satisfaction guarantee with easy return policy.</p>
+                                <p className="text-sm opacity-90">
+                                    100% satisfaction guarantee with easy return policy.
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="text-2xl">✅</div>
                             <div>
                                 <h3 className="font-bold mb-1">Secure Payment</h3>
-                                <p className="text-sm opacity-90">Multiple secure payment options for your convenience.</p>
+                                <p className="text-sm opacity-90">
+                                    Multiple secure payment options for your convenience.
+                                </p>
                             </div>
                         </div>
                     </div>

@@ -207,7 +207,9 @@ const Contact = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Phone (Optional)
+                                    </label>
                                     <input
                                         type="tel"
                                         name="phone"

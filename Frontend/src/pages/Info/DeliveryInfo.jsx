@@ -20,8 +20,8 @@ const DeliveryInfo = () => {
                         <div>
                             <h2 className="text-2xl font-bold text-premium-secondary mb-4">Delivery Areas</h2>
                             <p className="text-gray-700 leading-relaxed mb-4">
-                                We currently deliver to most major cities and metropolitan areas. Our delivery network is
-                                constantly expanding, and we're working hard to reach more locations.
+                                We currently deliver to most major cities and metropolitan areas. Our delivery network
+                                is constantly expanding, and we're working hard to reach more locations.
                             </p>
                             <div className="bg-premium-background p-4 rounded-lg">
                                 <h3 className="font-bold text-premium-text mb-2">Currently Serving:</h3>
@@ -140,7 +140,9 @@ const DeliveryInfo = () => {
                     <ul className="space-y-2">
                         <li className="flex items-start gap-2">
                             <span>✓</span>
-                            <span>Please ensure someone is available to receive the order at the delivery address.</span>
+                            <span>
+                                Please ensure someone is available to receive the order at the delivery address.
+                            </span>
                         </li>
                         <li className="flex items-start gap-2">
                             <span>✓</span>

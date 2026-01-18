@@ -57,18 +57,6 @@ const CategorySidebar = ({ onCategorySelect }) => {
                         </button>
                     ))}
                 </div>
-
-                {/* Promotional Section */}
-                <div className="p-4 bg-premium-background m-2 rounded-lg">
-                    <div className="text-center">
-                        <div className="text-3xl mb-2">🎁</div>
-                        <h3 className="font-bold text-premium-text text-sm mb-1">Special Offer!</h3>
-                        <p className="text-xs text-gray-600 mb-3">Get 20% off on orders above $50</p>
-                        <button className="w-full bg-premium-accent hover:bg-opacity-90 text-white text-sm py-2 rounded-[--radius-button] font-semibold transition-all duration-200">
-                            View Deals
-                        </button>
-                    </div>
-                </div>
             </div>
         </aside>
     )

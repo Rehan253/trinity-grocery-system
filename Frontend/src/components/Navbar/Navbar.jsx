@@ -19,11 +19,12 @@ const Navbar = () => {
                 <div className="flex items-center justify-between h-20">
                     {/* Left - Brand Name */}
                     <div className="flex-shrink-0">
-                        <h1
+                        <Link
                             className="text-premium-secondary font-bold text-2xl sm:text-3xl"
-                            style={{ fontFamily: "'Poppins', sans-serif" }}>
+                            style={{ fontFamily: "'Poppins', sans-serif" }}
+                            to="/">
                             FreshExpress
-                        </h1>
+                        </Link>
                     </div>
 
                     {/* Center - Search Bar (Hidden on mobile) */}
@@ -104,7 +105,6 @@ const Navbar = () => {
                                 </span>
                             )}
                         </button>
-
                     </div>
                 </div>
 
