@@ -37,6 +37,7 @@ def register():
             - zip_code
             - city
             - country
+            - role
           properties:
             first_name:
               type: string
@@ -65,6 +66,10 @@ def register():
             country:
               type: string
               example: France
+            role:
+              type: string
+              example: admin
+              description: customer or admin
     responses:
       201:
         description: User registered successfully
@@ -86,9 +91,13 @@ def register():
     zip_code = (data.get("zip_code") or "").strip()
     city = (data.get("city") or "").strip()
     country = (data.get("country") or "").strip()
+    role = (data.get("role") or "customer").lower()
 
     # Validation
     errors = {}
+
+    if role not in ["customer", "admin"]:
+        errors["role"] = "role must be customer or admin"
 
     if not first_name:
         errors["first_name"] = "first_name is required"
@@ -129,14 +138,11 @@ def register():
         zip_code=zip_code,
         city=city,
         country=country,
+        role=role,
     )
 
-    try:
-        db.session.add(user)
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({"message": "Email already registered"}), 409
+    db.session.add(user)
+    db.session.commit()
 
     return jsonify(
         {
@@ -144,6 +150,7 @@ def register():
             "user": {
                 "id": user.id,
                 "email": user.email,
+                "role": user.role,
             },
         }
     ), 201
