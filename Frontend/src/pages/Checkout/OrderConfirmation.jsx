@@ -54,11 +54,15 @@ const OrderConfirmation = () => {
         doc.setFontSize(11)
         doc.setFont("helvetica", "normal")
         doc.text(`Order Number: ${order.orderNumber}`, 20, 70)
-        doc.text(`Order Date: ${new Date(order.date).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-        })}`, 20, 77)
+        doc.text(
+            `Order Date: ${new Date(order.date).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric"
+            })}`,
+            20,
+            77
+        )
 
         // Delivery Address
         doc.setFont("helvetica", "bold")

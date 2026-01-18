@@ -1,5 +1,7 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import Navbar from "../../components/Navbar"
+import { PromoCarousel } from "../../components/PromoCarousel"
 import { CategorySidebar, ProductGrid } from "../../components/Products"
 import { CartSidebar } from "../../components/Cart"
 import { useCart } from "../../context/CartContext"
@@ -22,6 +24,9 @@ const Shop = () => {
         <div className="min-h-screen bg-premium-background">
             {/* Navbar Component */}
             <Navbar />
+
+            {/* Promotional Carousel */}
+            <PromoCarousel />
 
             {/* Cart Sidebar */}
             <CartSidebar />
@@ -63,32 +68,32 @@ const Shop = () => {
                             <h4 className="font-semibold mb-3">Quick Links</h4>
                             <ul className="space-y-2 text-sm opacity-90">
                                 <li>
-                                    <a
-                                        href="#"
+                                    <Link
+                                        to="/about"
                                         className="hover:text-premium-primary transition-colors">
                                         About Us
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
-                                        href="#"
+                                    <Link
+                                        to="/contact"
                                         className="hover:text-premium-primary transition-colors">
                                         Contact
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
-                                        href="#"
+                                    <Link
+                                        to="/faq"
                                         className="hover:text-premium-primary transition-colors">
                                         FAQ
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
-                                        href="#"
+                                    <Link
+                                        to="/delivery-info"
                                         className="hover:text-premium-primary transition-colors">
                                         Delivery Info
-                                    </a>
+                                    </Link>
                                 </li>
                             </ul>
                         </div>

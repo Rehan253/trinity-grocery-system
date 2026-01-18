@@ -1,5 +1,18 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
-import { Shop, Login, Signup, Profile, EditProfile, DeliveryAddress, Payment, OrderConfirmation } from "./pages"
+import {
+    Shop,
+    Login,
+    Signup,
+    Profile,
+    EditProfile,
+    DeliveryAddress,
+    Payment,
+    OrderConfirmation,
+    AboutUs,
+    Contact,
+    FAQ,
+    DeliveryInfo
+} from "./pages"
 import { CartProvider } from "./context/CartContext"
 
 function App() {
@@ -45,6 +58,24 @@ function App() {
                     <Route
                         path="/checkout/confirmation"
                         element={<OrderConfirmation />}
+                    />
+
+                    {/* Info Pages */}
+                    <Route
+                        path="/about"
+                        element={<AboutUs />}
+                    />
+                    <Route
+                        path="/contact"
+                        element={<Contact />}
+                    />
+                    <Route
+                        path="/faq"
+                        element={<FAQ />}
+                    />
+                    <Route
+                        path="/delivery-info"
+                        element={<DeliveryInfo />}
                     />
 
                     {/* Fallback */}

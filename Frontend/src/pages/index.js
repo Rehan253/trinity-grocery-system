@@ -9,3 +9,6 @@ export { Profile, EditProfile } from "./User"
 
 // Checkout module
 export { DeliveryAddress, Payment, OrderConfirmation } from "./Checkout"
+
+// Info module
+export { AboutUs, Contact, FAQ, DeliveryInfo } from "./Info"
