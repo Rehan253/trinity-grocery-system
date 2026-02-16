@@ -1,1 +1,1 @@
-export const API_BASE_URL = "http://10.68.254.153:5000";
+export const API_BASE_URL = "https://petite-peaches-tickle.loca.lt";
