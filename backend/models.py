@@ -41,6 +41,7 @@ class Product(db.Model):
 
     name = db.Column(db.String(200), nullable=False)
     brand = db.Column(db.String(100), nullable=False)
+    barcode = db.Column(db.String(64), unique=True, nullable=True)
     category = db.Column(db.String(100), nullable=False)
 
     description = db.Column(db.Text, nullable=True)

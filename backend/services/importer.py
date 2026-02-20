@@ -17,12 +17,6 @@ def import_products_logic():
 
     for barcode in BARCODES:
         try:
-            # Check if product already exists to avoid unnecessary API calls
-            # (Optimization: though the original code checked DB *after* fetch for name/brand match, 
-            # we can't check by barcode easily as Product model doesn't store barcode! 
-            # Wait, checking models.py... Product has name, brand, etc. No barcode.
-            # So we must fetch first to get the name/brand to check existence.
-            
             data = fetch_product_by_barcode(barcode)
             if not data:
                 skipped += 1
@@ -38,8 +32,10 @@ def import_products_logic():
                 skipped += 1
                 continue
 
-            # Prevent duplicates (by name + brand)
-            existing = Product.query.filter_by(name=name, brand=brand).first()
+            # Prevent duplicates (prefer barcode, fallback name+brand)
+            existing = Product.query.filter_by(barcode=barcode).first()
+            if not existing:
+                existing = Product.query.filter_by(name=name, brand=brand).first()
             if existing:
                 print(f"Skipping existing: {name}")
                 skipped += 1
@@ -48,6 +44,7 @@ def import_products_logic():
             product = Product(
                 name=name[:200],
                 brand=brand[:100],
+                barcode=barcode,
                 category=(categories or "Unknown")[:100],
                 price=0.0,  # Default price
                 quantity_in_stock=100,

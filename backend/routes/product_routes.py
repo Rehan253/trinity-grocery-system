@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, jsonify
 from models import Product
 from flask import request
-from flask_jwt_extended import jwt_required
+from sqlalchemy.exc import IntegrityError
 from extensions import db
 from security.authorization import admin_required
 
@@ -28,11 +28,19 @@ def normalize_list_field(value):
         return json.dumps([item.strip() for item in value.split(",") if item.strip()])
     return None
 
+
+def normalize_barcode(value):
+    if value is None:
+        return None
+    barcode = str(value).strip()
+    return barcode or None
+
 def serialize_product(product):
     return {
         "id": product.id,
         "name": product.name,
         "brand": product.brand,
+        "barcode": product.barcode,
         "category": product.category,
         "description": product.description,
         "unit": product.unit,
@@ -65,6 +73,36 @@ def get_products():
     products = Product.query.all()
 
     return jsonify([serialize_product(product) for product in products]), 200
+
+
+@product_bp.get("/barcode/<string:barcode>")
+def get_product_by_barcode(barcode):
+    """
+    Get product by barcode
+    ---
+    tags:
+      - Products
+    parameters:
+      - name: barcode
+        in: path
+        type: string
+        required: true
+        description: Product barcode
+    responses:
+      200:
+        description: Product found
+      404:
+        description: Product not found
+    """
+    normalized = (barcode or "").strip()
+    if not normalized:
+        return jsonify({"message": "barcode is required"}), 400
+
+    product = Product.query.filter_by(barcode=normalized).first()
+    if not product:
+        return jsonify({"message": "Product not found"}), 404
+
+    return jsonify(serialize_product(product)), 200
 
 
 @product_bp.get("/<int:product_id>")
@@ -161,6 +199,7 @@ def create_product():
     product = Product(
         name=data["name"],
         brand=data["brand"],
+        barcode=normalize_barcode(data.get("barcode")),
         category=data["category"],
         description=data.get("description"),
         unit=data.get("unit"),
@@ -178,7 +217,11 @@ def create_product():
     )
 
     db.session.add(product)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Barcode already exists"}), 409
 
     return jsonify(serialize_product(product)), 201
 
@@ -216,6 +259,8 @@ def update_product(product_id):
         product.name = data["name"]
     if "brand" in data:
         product.brand = data["brand"]
+    if "barcode" in data:
+        product.barcode = normalize_barcode(data.get("barcode"))
     if "category" in data:
         product.category = data["category"]
     if "description" in data:
@@ -245,7 +290,11 @@ def update_product(product_id):
     if "reviews" in data:
         product.reviews = data["reviews"]
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Barcode already exists"}), 409
 
     return jsonify(serialize_product(product)), 200
 
