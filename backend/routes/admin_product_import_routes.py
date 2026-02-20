@@ -134,8 +134,12 @@ def import_products():
                 continue
 
             # Upsert by name + brand to refresh imported metadata
-            existing = Product.query.filter_by(name=name, brand=brand).first()
+            existing = Product.query.filter_by(barcode=barcode).first()
+            if not existing:
+                existing = Product.query.filter_by(name=name, brand=brand).first()
             if existing:
+                if not existing.barcode:
+                    existing.barcode = barcode
                 existing.category = (categories or existing.category or "Unknown")[:100]
                 existing.picture_url = image_url or existing.picture_url
                 if nutriments:
@@ -151,6 +155,7 @@ def import_products():
             product = Product(
                 name=name[:200],
                 brand=brand[:100],
+                barcode=barcode,
                 category=(categories or "Unknown")[:100],
                 price=0.0,  # Admin can update later
                 quantity_in_stock=100,
