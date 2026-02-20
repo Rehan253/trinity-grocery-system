@@ -28,7 +28,7 @@ def seed_super_admin():
     admin_password = os.getenv("SUPER_ADMIN_PASSWORD", "admin123")
 
     if not User.query.filter_by(email=admin_email).first():
-        print(f"🌱 Seeding Super Admin: {admin_email}")
+        print(f" Seeding Super Admin: {admin_email}")
         admin = User(
             first_name="Super",
             last_name="Admin",
@@ -43,9 +43,9 @@ def seed_super_admin():
         )
         db.session.add(admin)
         db.session.commit()
-        print("✅ Super Admin created.")
+        print("Super Admin created.")
     else:
-        print("ℹ️  Super Admin already exists.")
+        print("ℹ Super Admin already exists.")
 
 
 def create_app():
@@ -59,12 +59,24 @@ def create_app():
     app.config.from_object(Config)
 
     # Initialize CORS
+    local_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8081",
+        "http://localhost:8082",
+        "http://localhost:19006",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8081",
+        "http://127.0.0.1:8082",
+        "http://127.0.0.1:19006",
+    ]
+
     CORS(app, resources={
-        r"/auth/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]},
-        r"/api/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]},
-        r"/products": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]},
-        r"/products/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]},
-        r"/*": {"origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]}
+        r"/auth/*": {"origins": local_origins},
+        r"/api/*": {"origins": local_origins},
+        r"/products": {"origins": local_origins},
+        r"/products/*": {"origins": local_origins},
+        r"/*": {"origins": local_origins}
     }, supports_credentials=True)
 
     # Initialize extensions
