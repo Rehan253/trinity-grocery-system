@@ -5,12 +5,17 @@ import HomeScreen from "../screens/HomeScreen";
 
 const Stack = createNativeStackNavigator();
 
-export default function AuthNavigator() {
+export default function AuthNavigator({ isLoggedIn }) {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
-      <Stack.Screen name="Home" component={HomeScreen} />
+      {isLoggedIn ? (
+        <Stack.Screen name="Home" component={HomeScreen} />
+      ) : (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }
