@@ -5,6 +5,7 @@ from flasgger import Swagger
 from flask_jwt_extended import JWTManager
 from routes.product_routes import product_bp
 from routes.invoice_routes import invoice_bp
+from routes.payment_routes import payment_bp
 from routes.admin_product_import_routes import admin_import_bp
 from routes.admin_promotion_routes import admin_promotions_bp
 from routes.admin_user_routes import admin_users_bp
@@ -93,6 +94,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(product_bp)
     app.register_blueprint(invoice_bp)
+    app.register_blueprint(payment_bp)
     app.register_blueprint(admin_import_bp)
     app.register_blueprint(admin_users_bp)
     app.register_blueprint(admin_promotions_bp)

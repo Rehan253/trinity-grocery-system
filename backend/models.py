@@ -92,6 +92,10 @@ class Invoice(db.Model):
     delivery_zip_code = db.Column(db.String(20), nullable=True)
     delivery_notes = db.Column(db.Text, nullable=True)
     payment_method = db.Column(db.String(50), nullable=True)
+    payment_status = db.Column(db.String(30), nullable=False, default="unpaid")
+    paypal_order_id = db.Column(db.String(128), nullable=True)
+    paypal_capture_id = db.Column(db.String(128), nullable=True)
+    paid_at = db.Column(db.DateTime, nullable=True)
 
     user = db.relationship(
         "User",

@@ -71,6 +71,7 @@ def create_invoice():
             "message": "Invoice created successfully",
             "invoice_id": invoice.id,
             "created_at": invoice.created_at.isoformat(),
+            "payment_status": invoice.payment_status,
         }
     ), 201
 
@@ -295,6 +296,10 @@ def get_invoice_details(invoice_id):
                 "deliveryNotes": invoice.delivery_notes,
             },
             "paymentMethod": invoice.payment_method,
+            "paymentStatus": invoice.payment_status,
+            "paypalOrderId": invoice.paypal_order_id,
+            "paypalCaptureId": invoice.paypal_capture_id,
+            "paidAt": invoice.paid_at.isoformat() if invoice.paid_at else None,
             "items": items,
         }
     ), 200
@@ -323,6 +328,8 @@ def get_my_invoices():
                 "invoice_id": invoice.id,
                 "total_amount": float(invoice.total_amount),
                 "created_at": invoice.created_at.isoformat(),
+                "payment_status": invoice.payment_status,
+                "payment_method": invoice.payment_method,
                 "item_count": len(invoice.invoice_items),
             }
         )
