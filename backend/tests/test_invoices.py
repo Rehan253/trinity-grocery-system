@@ -1,5 +1,5 @@
 from extensions import db
-from models import Invoice, Product
+from models import Invoice, InvoiceItem, Product
 
 
 BASE_PASSWORD = "Password123"
@@ -75,6 +75,16 @@ def create_invoice(client, token, payment_method="cash"):
     )
     assert response.status_code == 201
     return response.get_json()["invoice_id"]
+
+
+def add_invoice_item(client, token, invoice_id, product_id, quantity):
+    response = client.post(
+        f"/invoices/{invoice_id}/items",
+        json={"product_id": product_id, "quantity": quantity},
+        headers=auth_headers(token),
+    )
+    assert response.status_code == 201
+    return response.get_json()
 
 
 def test_create_invoice_success(client):
@@ -250,3 +260,158 @@ def test_get_my_invoices_returns_only_current_user_history(client):
     invoice_ids = {item["invoice_id"] for item in body}
     assert first_invoice_id in invoice_ids
     assert second_invoice_id in invoice_ids
+
+
+def test_update_invoice_item_increase_quantity_updates_total_and_stock(client, app):
+    email = "invoice.patch.increase@example.com"
+    register_user(client, email)
+    token = login_and_get_token(client, email)
+
+    product_id = create_product(
+        app,
+        barcode="9000000000006",
+        price=2.5,
+        quantity_in_stock=10,
+    )
+    invoice_id = create_invoice(client, token)
+    add_body = add_invoice_item(client, token, invoice_id, product_id, 2)
+    item_id = add_body["item"]["id"]
+
+    response = client.patch(
+        f"/invoices/{invoice_id}/items/{item_id}",
+        json={"quantity": 5},
+        headers=auth_headers(token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["message"] == "Item updated successfully"
+    assert body["item"]["quantity"] == 5
+    assert body["new_total_amount"] == 12.5
+    assert body["remaining_stock"] == 5
+
+    with app.app_context():
+        product = Product.query.get(product_id)
+        invoice = Invoice.query.get(invoice_id)
+        item = InvoiceItem.query.get(item_id)
+        assert product.quantity_in_stock == 5
+        assert float(invoice.total_amount) == 12.5
+        assert item.quantity == 5
+
+
+def test_update_invoice_item_decrease_quantity_restores_stock_and_total(client, app):
+    email = "invoice.patch.decrease@example.com"
+    register_user(client, email)
+    token = login_and_get_token(client, email)
+
+    product_id = create_product(
+        app,
+        barcode="9000000000007",
+        price=3.0,
+        quantity_in_stock=8,
+    )
+    invoice_id = create_invoice(client, token)
+    add_body = add_invoice_item(client, token, invoice_id, product_id, 4)
+    item_id = add_body["item"]["id"]
+
+    response = client.patch(
+        f"/invoices/{invoice_id}/items/{item_id}",
+        json={"quantity": 1},
+        headers=auth_headers(token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["item"]["quantity"] == 1
+    assert body["new_total_amount"] == 3.0
+    assert body["remaining_stock"] == 7
+
+    with app.app_context():
+        product = Product.query.get(product_id)
+        invoice = Invoice.query.get(invoice_id)
+        assert product.quantity_in_stock == 7
+        assert float(invoice.total_amount) == 3.0
+
+
+def test_update_invoice_item_forbidden_for_other_user(client, app):
+    owner_email = "invoice.patch.owner@example.com"
+    other_email = "invoice.patch.other@example.com"
+    register_user(client, owner_email)
+    register_user(client, other_email)
+
+    owner_token = login_and_get_token(client, owner_email)
+    other_token = login_and_get_token(client, other_email)
+
+    product_id = create_product(app, barcode="9000000000008")
+    invoice_id = create_invoice(client, owner_token)
+    add_body = add_invoice_item(client, owner_token, invoice_id, product_id, 1)
+    item_id = add_body["item"]["id"]
+
+    response = client.patch(
+        f"/invoices/{invoice_id}/items/{item_id}",
+        json={"quantity": 2},
+        headers=auth_headers(other_token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 403
+    assert body["message"] == "You are not allowed to modify this invoice"
+
+
+def test_delete_invoice_item_restores_stock_and_reduces_total(client, app):
+    email = "invoice.delete@example.com"
+    register_user(client, email)
+    token = login_and_get_token(client, email)
+
+    product_id = create_product(
+        app,
+        barcode="9000000000009",
+        price=1.5,
+        quantity_in_stock=9,
+    )
+    invoice_id = create_invoice(client, token)
+    add_body = add_invoice_item(client, token, invoice_id, product_id, 3)
+    item_id = add_body["item"]["id"]
+
+    response = client.delete(
+        f"/invoices/{invoice_id}/items/{item_id}",
+        headers=auth_headers(token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["message"] == "Item removed successfully"
+    assert body["new_total_amount"] == 0.0
+    assert body["remaining_stock"] == 9
+
+    with app.app_context():
+        product = Product.query.get(product_id)
+        invoice = Invoice.query.get(invoice_id)
+        item = InvoiceItem.query.get(item_id)
+        assert product.quantity_in_stock == 9
+        assert float(invoice.total_amount) == 0.0
+        assert item is None
+
+
+def test_delete_invoice_item_forbidden_for_other_user(client, app):
+    owner_email = "invoice.delete.owner@example.com"
+    other_email = "invoice.delete.other@example.com"
+    register_user(client, owner_email)
+    register_user(client, other_email)
+
+    owner_token = login_and_get_token(client, owner_email)
+    other_token = login_and_get_token(client, other_email)
+
+    product_id = create_product(app, barcode="9000000000010")
+    invoice_id = create_invoice(client, owner_token)
+    add_body = add_invoice_item(client, owner_token, invoice_id, product_id, 2)
+    item_id = add_body["item"]["id"]
+
+    response = client.delete(
+        f"/invoices/{invoice_id}/items/{item_id}",
+        headers=auth_headers(other_token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 403
+    assert body["message"] == "You are not allowed to modify this invoice"
