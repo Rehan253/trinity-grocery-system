@@ -27,13 +27,14 @@ from extensions import db
 
 @pytest.fixture
 def app():
-    app = create_app()
-    app.config.update(
-        TESTING=True,
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        JWT_SECRET_KEY="test-jwt-secret",
-        SECRET_KEY="test-secret",
-        _SUPER_ADMIN_SEEDED=True,
+    app = create_app(
+        {
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "JWT_SECRET_KEY": "test-jwt-secret",
+            "SECRET_KEY": "test-secret",
+            "_SUPER_ADMIN_SEEDED": True,
+        }
     )
 
     with app.app_context():
