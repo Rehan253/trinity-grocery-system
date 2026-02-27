@@ -1,8 +1,8 @@
 import os
 from flask import Flask, jsonify
 from flask_cors import CORS
-from flasgger import Swagger
 from flask_jwt_extended import JWTManager
+from dotenv import load_dotenv
 from routes.product_routes import product_bp
 from routes.invoice_routes import invoice_bp
 from routes.payment_routes import payment_bp
@@ -16,6 +16,15 @@ from extensions import db, migrate
 import models
 
 from routes.auth_routes import auth_bp
+
+load_dotenv()
+
+try:
+    from flasgger import Swagger
+except Exception as swagger_import_error:  # noqa: F401
+    class Swagger:  # pylint: disable=too-few-public-methods
+        def __init__(self, *args, **kwargs):
+            print("WARNING: Swagger disabled due to dependency error.")
 
 
 def seed_super_admin():
@@ -49,7 +58,7 @@ def seed_super_admin():
         print("ℹ Super Admin already exists.")
 
 
-def create_app():
+def create_app(config_overrides=None):
     """
     Application factory.
     Creates and configures the Flask app.
@@ -58,6 +67,8 @@ def create_app():
 
     # Load configuration
     app.config.from_object(Config)
+    if config_overrides:
+        app.config.update(config_overrides)
 
     # Initialize CORS
     local_origins = [
@@ -70,6 +81,9 @@ def create_app():
         "http://127.0.0.1:8081",
         "http://127.0.0.1:8082",
         "http://127.0.0.1:19006",
+        r"http://172\.\d+\.\d+\.\d+:\d+",
+        r"http://192\.168\.\d+\.\d+:\d+",
+        r"http://10\.\d+\.\d+\.\d+:\d+",
     ]
 
     CORS(app, resources={

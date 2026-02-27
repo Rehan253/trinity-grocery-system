@@ -1,18 +1,36 @@
 import { useState } from "react";
 import { View, Text, TextInput, Button, ScrollView, Image } from "react-native";
 import useProductStore from "../store/productStore";
+import useCheckoutStore from "../store/checkoutStore";
 
-export default function ScannerScreen() {
+export default function ScannerScreen({ navigation }) {
   const { scannedProduct, loading, error, fetchByBarcode, clearScannedProduct } = useProductStore();
+  const { addToCart, cartItems } = useCheckoutStore();
   const [barcode, setBarcode] = useState("");
+  const [addedMessage, setAddedMessage] = useState("");
+
+  const cartCount = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
   const onSearch = async () => {
+    setAddedMessage("");
     await fetchByBarcode(barcode);
+  };
+
+  const onAddToCart = () => {
+    if (!scannedProduct?.id) return;
+    addToCart({
+      productId: scannedProduct.id,
+      quantity: 1,
+      name: scannedProduct.name,
+      price: Number(scannedProduct.price || 0),
+    });
+    setAddedMessage("Added to cart");
   };
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 10 }}>
       <Text style={{ fontSize: 22, fontWeight: "700" }}>Scanner (Manual Mode)</Text>
+      <Text>Cart items: {cartCount}</Text>
       <Text>Enter barcode to simulate scan:</Text>
 
       <TextInput
@@ -25,8 +43,10 @@ export default function ScannerScreen() {
 
       <Button title={loading ? "Searching..." : "Find Product"} onPress={onSearch} disabled={loading} />
       <Button title="Clear Result" onPress={clearScannedProduct} />
+      <Button title="Go to Cart" onPress={() => navigation.navigate("Cart")} />
 
       {!!error && <Text style={{ color: "red" }}>{error}</Text>}
+      {!!addedMessage && <Text style={{ color: "green" }}>{addedMessage}</Text>}
 
       {scannedProduct && (
         <View style={{ marginTop: 8, gap: 6 }}>
@@ -45,6 +65,8 @@ export default function ScannerScreen() {
               resizeMode="contain"
             />
           ) : null}
+
+          <Button title="Add to Cart" onPress={onAddToCart} />
         </View>
       )}
     </ScrollView>

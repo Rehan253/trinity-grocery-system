@@ -13,6 +13,11 @@ export default function HomeScreen({ navigation }) {
       <Text style={{ fontSize: 22, fontWeight: "700" }}>Home</Text>
       <Text>Welcome {user?.first_name || "User"}</Text>
       <Button title="Scan Product" onPress={() => navigation.navigate("Scanner")} />
+      <Button title="View Cart" onPress={() => navigation.navigate("Cart")} />
+      <Button
+        title="Purchase History"
+        onPress={() => navigation.navigate("PurchaseHistory")}
+      />
       <Button title="Logout" onPress={onLogout} />
     </View>
   );
