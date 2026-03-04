@@ -1,19 +1,44 @@
 import { useState } from "react";
 import { View, Text, TextInput, Button, ScrollView, Image } from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import useProductStore from "../store/productStore";
 import useCheckoutStore from "../store/checkoutStore";
 
 export default function ScannerScreen({ navigation }) {
   const { scannedProduct, loading, error, fetchByBarcode, clearScannedProduct } = useProductStore();
   const { addToCart, cartItems } = useCheckoutStore();
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scannerEnabled, setScannerEnabled] = useState(true);
   const [barcode, setBarcode] = useState("");
   const [addedMessage, setAddedMessage] = useState("");
+  const [scanMessage, setScanMessage] = useState("");
 
   const cartCount = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
   const onSearch = async () => {
     setAddedMessage("");
+    setScanMessage("");
     await fetchByBarcode(barcode);
+  };
+
+  const onBarcodeScanned = async ({ data }) => {
+    if (!scannerEnabled || !data) return;
+    setScannerEnabled(false);
+    setBarcode(data);
+    setAddedMessage("");
+    setScanMessage(`Scanned: ${data}`);
+    await fetchByBarcode(data);
+  };
+
+  const onRescan = () => {
+    setScannerEnabled(true);
+    setScanMessage("");
+  };
+
+  const onClearResult = () => {
+    clearScannedProduct();
+    setAddedMessage("");
+    setScanMessage("");
   };
 
   const onAddToCart = () => {
@@ -29,9 +54,43 @@ export default function ScannerScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20, gap: 10 }}>
-      <Text style={{ fontSize: 22, fontWeight: "700" }}>Scanner (Manual Mode)</Text>
+      <Text style={{ fontSize: 22, fontWeight: "700" }}>Scanner</Text>
       <Text>Cart items: {cartCount}</Text>
-      <Text>Enter barcode to simulate scan:</Text>
+
+      <Text style={{ fontWeight: "700" }}>Camera Scanner</Text>
+      {!permission ? (
+        <Text>Loading camera permission...</Text>
+      ) : permission.granted ? (
+        <View
+          style={{
+            height: 260,
+            borderRadius: 10,
+            overflow: "hidden",
+            borderWidth: 1,
+            backgroundColor: "#000",
+          }}
+        >
+          <CameraView
+            style={{ flex: 1 }}
+            facing="back"
+            onBarcodeScanned={scannerEnabled ? onBarcodeScanned : undefined}
+            barcodeScannerSettings={{
+              barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128", "code39", "qr"],
+            }}
+          />
+        </View>
+      ) : (
+        <View style={{ borderWidth: 1, borderRadius: 10, padding: 12, gap: 8 }}>
+          <Text>Camera permission is required for scanning.</Text>
+          <Button title="Allow Camera Access" onPress={requestPermission} />
+        </View>
+      )}
+
+      <Button title="Scan Again" onPress={onRescan} />
+      {!!scanMessage && <Text>{scanMessage}</Text>}
+
+      <Text style={{ fontWeight: "700", marginTop: 4 }}>Manual Mode (Fallback)</Text>
+      <Text>Enter barcode manually if camera is unavailable:</Text>
 
       <TextInput
         placeholder="e.g. 1234567890123"
@@ -42,7 +101,7 @@ export default function ScannerScreen({ navigation }) {
       />
 
       <Button title={loading ? "Searching..." : "Find Product"} onPress={onSearch} disabled={loading} />
-      <Button title="Clear Result" onPress={clearScannedProduct} />
+      <Button title="Clear Result" onPress={onClearResult} />
       <Button title="Go to Cart" onPress={() => navigation.navigate("Cart")} />
 
       {!!error && <Text style={{ color: "red" }}>{error}</Text>}
