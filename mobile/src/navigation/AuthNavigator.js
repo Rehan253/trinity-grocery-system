@@ -6,6 +6,7 @@ import ScannerScreen from "../screens/ScannerScreen";
 import CartScreen from "../screens/CartScreen";
 import CheckoutScreen from "../screens/CheckoutScreen";
 import PurchaseHistoryScreen from "../screens/PurchaseHistoryScreen";
+import AccountScreen from "../screens/AccountScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -19,6 +20,7 @@ export default function AuthNavigator({ isLoggedIn }) {
           <Stack.Screen name="Cart" component={CartScreen} />
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
           <Stack.Screen name="PurchaseHistory" component={PurchaseHistoryScreen} />
+          <Stack.Screen name="Account" component={AccountScreen} />
         </>
       ) : (
         <>
