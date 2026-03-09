@@ -26,6 +26,10 @@ def login_user(client, email=None, password=None):
     )
 
 
+def auth_headers(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_register_success(client):
     response = register_user(client)
     body = response.get_json()
@@ -86,7 +90,7 @@ def test_me_returns_user_profile_with_valid_jwt(client):
 
     response = client.get(
         "/auth/me",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_headers(token),
     )
     body = response.get_json()
 
@@ -94,3 +98,73 @@ def test_me_returns_user_profile_with_valid_jwt(client):
     assert body["email"] == BASE_USER["email"]
     assert body["first_name"] == BASE_USER["first_name"]
     assert body["last_name"] == BASE_USER["last_name"]
+
+
+def test_update_me_requires_jwt(client):
+    response = client.put("/auth/me", json={"city": "Paris"})
+
+    assert response.status_code == 401
+
+
+def test_update_me_updates_profile_fields(client):
+    register_user(client)
+    token = login_user(client).get_json()["access_token"]
+
+    payload = {
+        "first_name": "Updated",
+        "last_name": "Customer",
+        "phone_number": "+3311223344",
+        "address": "45 Avenue de Test",
+        "zip_code": "75010",
+        "city": "Paris",
+        "state": "Ile-de-France",
+        "country": "France",
+    }
+    response = client.put("/auth/me", json=payload, headers=auth_headers(token))
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["message"] == "Profile updated"
+    assert body["user"]["first_name"] == payload["first_name"]
+    assert body["user"]["city"] == payload["city"]
+    assert body["user"]["state"] == payload["state"]
+
+    me_response = client.get("/auth/me", headers=auth_headers(token))
+    me_body = me_response.get_json()
+
+    assert me_response.status_code == 200
+    assert me_body["first_name"] == payload["first_name"]
+    assert me_body["phone_number"] == payload["phone_number"]
+    assert me_body["address"] == payload["address"]
+
+
+def test_update_me_rejects_empty_fields(client):
+    register_user(client)
+    token = login_user(client).get_json()["access_token"]
+
+    response = client.put("/auth/me", json={"first_name": "   "}, headers=auth_headers(token))
+    body = response.get_json()
+
+    assert response.status_code == 400
+    assert "errors" in body
+    assert body["errors"]["first_name"] == "first_name cannot be empty"
+
+
+def test_update_me_rejects_duplicate_email(client):
+    register_user(client)
+    register_user(
+        client,
+        email="second.user@example.com",
+        phone_number="+15557654321",
+    )
+
+    token = login_user(client).get_json()["access_token"]
+    response = client.put(
+        "/auth/me",
+        json={"email": "second.user@example.com"},
+        headers=auth_headers(token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 409
+    assert body["message"] == "Email already registered"

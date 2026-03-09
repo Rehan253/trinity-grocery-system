@@ -18,6 +18,7 @@ export default function HomeScreen({ navigation }) {
         title="Purchase History"
         onPress={() => navigation.navigate("PurchaseHistory")}
       />
+      <Button title="Manage Account" onPress={() => navigation.navigate("Account")} />
       <Button title="Logout" onPress={onLogout} />
     </View>
   );
