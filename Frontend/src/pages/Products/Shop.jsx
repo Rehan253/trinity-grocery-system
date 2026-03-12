@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import Navbar from "../../components/Navbar"
 import { PromoCarousel } from "../../components/PromoCarousel"
-import { CategorySidebar, ProductGrid, ProductDetail, ProductFilters } from "../../components/Products"
+import { CategorySidebar, ProductGrid, ProductDetail, ProductFilters, Recommendations } from "../../components/Products"
 import { CartSidebar } from "../../components/Cart"
 import { useCart } from "../../context/CartContext"
 import productStore from "../../data/Products.jsx"
@@ -164,6 +164,14 @@ const Shop = () => {
 
                         {/* Right Content - Product Grid - 80% width on desktop */}
                         <div className="w-full lg:w-4/5">
+                            <Recommendations
+                                userId={user?.id}
+                                isAuthenticated={isAuthenticated}
+                                products={products}
+                                onAddToCart={handleAddToCart}
+                                onProductClick={handleProductClick}
+                            />
+
                             {/* Filters */}
                             <ProductFilters
                                 filters={filters}

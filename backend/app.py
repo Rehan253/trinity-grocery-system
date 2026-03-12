@@ -3,6 +3,9 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
+
+load_dotenv()
+
 from routes.product_routes import product_bp
 from routes.invoice_routes import invoice_bp
 from routes.payment_routes import payment_bp
@@ -10,14 +13,14 @@ from routes.admin_product_import_routes import admin_import_bp
 from routes.admin_promotion_routes import admin_promotions_bp
 from routes.admin_user_routes import admin_users_bp
 from routes.kpi_routes import kpi_bp
+from routes.recommendation_routes import recommendation_bp
+
 
 from config import Config
 from extensions import db, migrate
 import models
 
 from routes.auth_routes import auth_bp
-
-load_dotenv()
 
 try:
     from flasgger import Swagger
@@ -113,6 +116,7 @@ def create_app(config_overrides=None):
     app.register_blueprint(admin_users_bp)
     app.register_blueprint(admin_promotions_bp)
     app.register_blueprint(kpi_bp)
+    app.register_blueprint(recommendation_bp)
 
     @app.before_request
     def ensure_super_admin():
@@ -122,7 +126,7 @@ def create_app(config_overrides=None):
             seed_super_admin()
             app.config["_SUPER_ADMIN_SEEDED"] = True
         except Exception as e:
-            print(f"❌ Error seeding admin: {e}")
+            print(f"Error seeding admin: {e}")
 
 
     

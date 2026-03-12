@@ -217,6 +217,64 @@ def test_capture_paypal_order_marks_invoice_paid(client, app, monkeypatch):
         assert invoice.paid_at is not None
 
 
+def test_capture_paypal_order_sends_algolia_purchase_event(client, app, monkeypatch):
+    email = "payments.algolia-event@example.com"
+    register_user(client, email)
+    token = login_and_get_token(client, email)
+
+    product_id = create_product(app, price=9.0)
+    invoice_id = create_invoice(client, token)
+    add_invoice_item(client, token, invoice_id, product_id, 1)
+
+    with app.app_context():
+        invoice = Invoice.query.get(invoice_id)
+        invoice.payment_method = "paypal"
+        invoice.payment_status = "pending"
+        invoice.paypal_order_id = "ORDER-ALGOLIA-1"
+        db.session.commit()
+
+    monkeypatch.setattr(
+        "routes.payment_routes.capture_paypal_order",
+        lambda order_id: {
+            "id": order_id,
+            "status": "COMPLETED",
+            "purchase_units": [
+                {
+                    "payments": {
+                        "captures": [
+                            {
+                                "id": "CAPTURE-ALGOLIA-1",
+                                "status": "COMPLETED",
+                                "amount": {"currency_code": "USD", "value": "9.00"},
+                            }
+                        ]
+                    }
+                }
+            ],
+        },
+    )
+
+    sent_payload = {}
+
+    def fake_send_purchase_event(user_id, product_object_ids):
+        sent_payload["user_id"] = user_id
+        sent_payload["product_object_ids"] = product_object_ids
+
+    monkeypatch.setattr("routes.payment_routes.send_purchase_event_to_algolia", fake_send_purchase_event)
+
+    response = client.post(
+        "/payments/paypal/capture-order",
+        json={"invoice_id": invoice_id},
+        headers=auth_headers(token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["algolia_purchase_event"]["sent"] is True
+    assert sent_payload["product_object_ids"] == [str(product_id)]
+    assert isinstance(sent_payload["user_id"], int)
+
+
 def test_capture_paypal_order_rejects_amount_mismatch(client, app, monkeypatch):
     email = "payments.mismatch@example.com"
     register_user(client, email)
