@@ -116,6 +116,72 @@ def test_create_invoice_success(client):
     assert "created_at" in body
 
 
+def test_create_invoice_requires_billing_fields(client):
+    email = "invoice.validation@example.com"
+    register_user(client, email)
+    token = login_and_get_token(client, email)
+
+    response = client.post(
+        "/invoices/",
+        json={
+            "paymentMethod": "paypal",
+            "deliveryAddress": {
+                "email": "invoice.validation@example.com",
+                "phone": "+15550003333",
+                "address": "",
+                "city": "",
+                "zipCode": "",
+            },
+        },
+        headers=auth_headers(token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 400
+    assert body["errors"]["first_name"] == "first_name is required"
+    assert body["errors"]["last_name"] == "last_name is required"
+    assert body["errors"]["address"] == "address is required"
+    assert body["errors"]["zip_code"] == "zip_code is required"
+    assert body["errors"]["city"] == "city is required"
+
+
+def test_create_invoice_accepts_first_and_last_name_fields(client):
+    email = "invoice.billing-fields@example.com"
+    register_user(client, email)
+    token = login_and_get_token(client, email)
+
+    response = client.post(
+        "/invoices/",
+        json={
+            "paymentMethod": "paypal",
+            "deliveryAddress": {
+                "firstName": "Billing",
+                "lastName": "Tester",
+                "email": "invoice.billing-fields@example.com",
+                "phone": "+15550004444",
+                "address": "77 Billing Street",
+                "city": "Paris",
+                "state": "Ile-de-France",
+                "zipCode": "75011",
+            },
+        },
+        headers=auth_headers(token),
+    )
+    body = response.get_json()
+
+    assert response.status_code == 201
+    invoice_id = body["invoice_id"]
+
+    invoice_response = client.get(f"/invoices/{invoice_id}", headers=auth_headers(token))
+    invoice_body = invoice_response.get_json()
+
+    assert invoice_response.status_code == 200
+    assert invoice_body["deliveryAddress"]["fullName"] == "Billing Tester"
+    assert invoice_body["deliveryAddress"]["address"] == "77 Billing Street"
+    assert invoice_body["deliveryAddress"]["city"] == "Paris"
+    assert invoice_body["deliveryAddress"]["zipCode"] == "75011"
+
+
 def test_add_invoice_item_reduces_stock_and_updates_total(client, app):
     email = "invoice.add-item@example.com"
     register_user(client, email)
