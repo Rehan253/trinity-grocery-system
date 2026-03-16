@@ -11,6 +11,7 @@ from services.paypal_service import (
     create_paypal_order,
     parse_capture_result,
 )
+from services.algolia_service import send_purchase_event_to_algolia
 
 
 payment_bp = Blueprint("payments", __name__, url_prefix="/payments")
@@ -42,6 +43,15 @@ def _load_owned_invoice(invoice_id, user_id):
     if invoice.user_id != user_id:
         return None, (jsonify({"message": "You are not allowed to access this invoice"}), 403)
     return invoice, None
+
+
+def _send_algolia_purchase_event(invoice, user_id):
+    product_object_ids = [str(item.product_id) for item in invoice.invoice_items if item.product_id is not None]
+    if not product_object_ids:
+        return {"sent": False, "reason": "no invoice items"}
+
+    send_purchase_event_to_algolia(user_id=user_id, product_object_ids=product_object_ids)
+    return {"sent": True}
 
 
 @payment_bp.post("/paypal/create-order")
@@ -176,6 +186,12 @@ def paypal_capture_order():
     invoice.paid_at = datetime.utcnow()
     db.session.commit()
 
+    algolia_event = {"sent": False}
+    try:
+        algolia_event = _send_algolia_purchase_event(invoice, user_id)
+    except Exception as exc:  # noqa: BLE001
+        algolia_event = {"sent": False, "reason": str(exc)}
+
     return (
         jsonify(
             {
@@ -184,6 +200,7 @@ def paypal_capture_order():
                 "capture_id": invoice.paypal_capture_id,
                 "captured_amount": format(captured_amount, ".2f"),
                 "currency_code": capture.get("currency_code"),
+                "algolia_purchase_event": algolia_event,
                 "invoice": _invoice_json(invoice),
             }
         ),
