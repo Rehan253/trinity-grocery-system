@@ -8,6 +8,55 @@ from models import Invoice, InvoiceItem, Product
 invoice_bp = Blueprint("invoices", __name__, url_prefix="/invoices")
 
 
+def _clean_text(value):
+    return str(value or "").strip()
+
+
+def _extract_name_parts(delivery):
+    first_name = _clean_text(delivery.get("firstName") or delivery.get("first_name"))
+    last_name = _clean_text(delivery.get("lastName") or delivery.get("last_name"))
+
+    # Backward compatibility: existing mobile payload sends "fullName".
+    full_name = _clean_text(delivery.get("fullName") or delivery.get("full_name"))
+    if full_name and (not first_name or not last_name):
+        parts = [part for part in full_name.split() if part]
+        if len(parts) >= 2:
+            if not first_name:
+                first_name = parts[0]
+            if not last_name:
+                last_name = " ".join(parts[1:])
+
+    return first_name, last_name
+
+
+def _validate_billing_fields(delivery):
+    first_name, last_name = _extract_name_parts(delivery)
+    address = _clean_text(delivery.get("address"))
+    zip_code = _clean_text(delivery.get("zipCode") or delivery.get("zip_code"))
+    city = _clean_text(delivery.get("city"))
+
+    errors = {}
+    if not first_name:
+        errors["first_name"] = "first_name is required"
+    if not last_name:
+        errors["last_name"] = "last_name is required"
+    if not address:
+        errors["address"] = "address is required"
+    if not zip_code:
+        errors["zip_code"] = "zip_code is required"
+    if not city:
+        errors["city"] = "city is required"
+
+    return {
+        "errors": errors,
+        "first_name": first_name,
+        "last_name": last_name,
+        "address": address,
+        "zip_code": zip_code,
+        "city": city,
+    }
+
+
 def parse_quantity(value):
     if value is None:
         return None, "quantity is required"
@@ -47,18 +96,22 @@ def create_invoice():
 
     data = request.get_json(silent=True) or {}
     delivery = data.get("deliveryAddress") or {}
+    billing = _validate_billing_fields(delivery)
+
+    if billing["errors"]:
+        return jsonify({"errors": billing["errors"]}), 400
 
     invoice = Invoice(
         user_id=user_id,
         total_amount=0,
-        delivery_full_name=delivery.get("fullName"),
+        delivery_full_name=f"{billing['first_name']} {billing['last_name']}".strip(),
         delivery_email=delivery.get("email"),
         delivery_phone=delivery.get("phone"),
-        delivery_address=delivery.get("address"),
+        delivery_address=billing["address"],
         delivery_apartment=delivery.get("apartment"),
-        delivery_city=delivery.get("city"),
+        delivery_city=billing["city"],
         delivery_state=delivery.get("state"),
-        delivery_zip_code=delivery.get("zipCode"),
+        delivery_zip_code=billing["zip_code"],
         delivery_notes=delivery.get("deliveryNotes"),
         payment_method=data.get("paymentMethod"),
     )
