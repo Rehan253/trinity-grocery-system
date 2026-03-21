@@ -94,7 +94,7 @@ def test_create_paypal_order_sets_pending_status(client, app, monkeypatch):
     invoice_id = create_invoice(client, token)
     add_invoice_item(client, token, invoice_id, product_id, 2)  # total 10.00
 
-    def fake_create_paypal_order(amount):
+    def fake_create_paypal_order(amount, return_url=None, cancel_url=None):
         assert str(amount) == "10.00"
         return {
             "order_id": "ORDER-123",
@@ -141,7 +141,7 @@ def test_create_paypal_order_forbidden_for_non_owner(client, app, monkeypatch):
 
     monkeypatch.setattr(
         "routes.payment_routes.create_paypal_order",
-        lambda amount: {
+        lambda amount, return_url=None, cancel_url=None: {
             "order_id": "ORDER-BLOCKED",
             "status": "CREATED",
             "approve_url": "https://paypal.test/approve/ORDER-BLOCKED",
