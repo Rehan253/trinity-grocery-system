@@ -1,12 +1,22 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import React from "react";
 
 import { HapticTab } from "@/components/haptic-tab";
+import { useAuth } from "@/context/AuthContext";
 import { useAppTheme } from "@/hooks/use-app-theme";
 
 export default function TabLayout() {
   const { palette } = useAppTheme();
+  const { token, isReady } = useAuth();
+
+  if (!isReady) {
+    return null;
+  }
+
+  if (!token) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <Tabs

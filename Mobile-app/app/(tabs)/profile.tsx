@@ -1,8 +1,12 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
 import { useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ThemedText } from "@/components/themed-text";
+import { useAuth } from "@/context/AuthContext";
+import { useAccessibilitySettings } from "@/hooks/use-accessibility-settings";
 import { useAppTheme } from "@/hooks/use-app-theme";
 
 type PurchaseHistoryItem = {
@@ -39,6 +43,8 @@ const purchaseHistory: PurchaseHistoryItem[] = [
 
 export default function ProfileScreen() {
   const { palette } = useAppTheme();
+  const { user, logout } = useAuth();
+  const { fontSize, boldText, setFontSize, setBoldText } = useAccessibilitySettings();
   const [activeTab, setActiveTab] = useState<"details" | "history">("details");
 
   return (
@@ -54,14 +60,14 @@ export default function ProfileScreen() {
             activeTab === "details" && { backgroundColor: palette.primary },
           ]}
         >
-          <Text
+          <ThemedText
             style={[
               styles.tabText,
               { color: activeTab === "details" ? "#FFFFFF" : palette.text },
             ]}
           >
             Details
-          </Text>
+          </ThemedText>
         </Pressable>
 
         <Pressable
@@ -71,14 +77,14 @@ export default function ProfileScreen() {
             activeTab === "history" && { backgroundColor: palette.primary },
           ]}
         >
-          <Text
+          <ThemedText
             style={[
               styles.tabText,
               { color: activeTab === "history" ? "#FFFFFF" : palette.text },
             ]}
           >
             History
-          </Text>
+          </ThemedText>
         </Pressable>
       </View>
 
@@ -91,26 +97,29 @@ export default function ProfileScreen() {
               <MaterialIcons name="person" size={30} color="#FFFFFF" />
             </View>
             <View style={styles.profileText}>
-              <Text style={[styles.name, { color: palette.text }]}>
-                Usama Iqbal
-              </Text>
-              <Text style={[styles.email, { color: palette.mutedText }]}>
-                usama@example.com
-              </Text>
+              <ThemedText style={[styles.name, { color: palette.text }]}>
+                {user
+                  ? [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
+                    user.email
+                  : "—"}
+              </ThemedText>
+              <ThemedText style={[styles.email, { color: palette.mutedText }]}>
+                {user?.email ?? "—"}
+              </ThemedText>
             </View>
           </View>
 
           <View
             style={[styles.detailsCard, { backgroundColor: palette.surface }]}
           >
-            <Text style={[styles.detailLabel, { color: palette.mutedText }]}>
+            <ThemedText style={[styles.detailLabel, { color: palette.mutedText }]}>
               Phone
-            </Text>
-            <Text style={[styles.detailValue, { color: palette.text }]}>
-              +92 300 0000000
-            </Text>
+            </ThemedText>
+            <ThemedText style={[styles.detailValue, { color: palette.text }]}>
+              {user?.phone_number ?? "—"}
+            </ThemedText>
 
-            <Text
+            <ThemedText
               style={[
                 styles.detailLabel,
                 styles.detailLabelSpacing,
@@ -118,30 +127,108 @@ export default function ProfileScreen() {
               ]}
             >
               Address
-            </Text>
-            <Text style={[styles.detailValue, { color: palette.text }]}>
-              Home, Lahore, Pakistan
-            </Text>
-
-            <Text
-              style={[
-                styles.detailLabel,
-                styles.detailLabelSpacing,
-                { color: palette.mutedText },
-              ]}
-            >
-              Member Since
-            </Text>
-            <Text style={[styles.detailValue, { color: palette.text }]}>
-              Jan 2026
-            </Text>
+            </ThemedText>
+            <ThemedText style={[styles.detailValue, { color: palette.text }]}>
+              {user?.address
+                ? [user.address, user.city, user.country]
+                    .filter(Boolean)
+                    .join(", ")
+                : "—"}
+            </ThemedText>
           </View>
+
+          <View
+            style={[styles.preferencesCard, { backgroundColor: palette.surface }]}
+          >
+            <ThemedText style={[styles.preferencesTitle, { color: palette.text }]}>
+              Accessibility Preferences
+            </ThemedText>
+
+            <ThemedText style={[styles.preferenceLabel, { color: palette.mutedText }]}>
+              Font size
+            </ThemedText>
+            <View style={styles.fontSizeRow}>
+              {[
+                { key: "small", label: "Small" },
+                { key: "default", label: "Default" },
+                { key: "large", label: "Large" },
+              ].map((option) => {
+                const isActive = fontSize === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    onPress={() =>
+                      setFontSize(option.key as "small" | "default" | "large")
+                    }
+                    style={[
+                      styles.fontSizeButton,
+                      {
+                        backgroundColor: isActive
+                          ? palette.primary
+                          : palette.surfaceMuted,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.fontSizeButtonText,
+                        { color: isActive ? "#FFFFFF" : palette.text },
+                      ]}
+                    >
+                      {option.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.switchRow}>
+              <View>
+                <ThemedText style={[styles.preferenceLabel, { color: palette.text }]}>
+                  Bold text
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.preferenceHelp,
+                    { color: palette.mutedText },
+                  ]}
+                >
+                  Makes app text heavier for readability.
+                </ThemedText>
+              </View>
+              <Switch
+                value={boldText}
+                onValueChange={setBoldText}
+                trackColor={{ false: palette.surfaceMuted, true: palette.primary }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          </View>
+
+          <Pressable
+            onPress={async () => {
+              await logout();
+              router.replace("/login");
+            }}
+            style={({ pressed }) => [
+              styles.logoutButton,
+              {
+                borderColor: palette.border,
+                backgroundColor: pressed ? palette.surfaceMuted : palette.surface,
+              },
+            ]}
+          >
+            <MaterialIcons name="logout" size={20} color={palette.danger} />
+            <ThemedText style={[styles.logoutText, { color: palette.danger }]}>
+              Log out
+            </ThemedText>
+          </Pressable>
         </>
       ) : (
         <>
-          <Text style={[styles.sectionTitle, { color: palette.text }]}>
+          <ThemedText style={[styles.sectionTitle, { color: palette.text }]}>
             Purchase History
-          </Text>
+          </ThemedText>
 
           <FlatList
             data={purchaseHistory}
@@ -155,20 +242,20 @@ export default function ProfileScreen() {
                 ]}
               >
                 <View style={styles.historyRow}>
-                  <Text style={[styles.orderNo, { color: palette.text }]}>
+                  <ThemedText style={[styles.orderNo, { color: palette.text }]}>
                     {item.orderNo}
-                  </Text>
-                  <Text style={[styles.total, { color: palette.primary }]}>
+                  </ThemedText>
+                  <ThemedText style={[styles.total, { color: palette.primary }]}>
                     {item.total}
-                  </Text>
+                  </ThemedText>
                 </View>
                 <View style={styles.historyRow}>
-                  <Text style={[styles.meta, { color: palette.mutedText }]}>
+                  <ThemedText style={[styles.meta, { color: palette.mutedText }]}>
                     {item.date}
-                  </Text>
-                  <Text style={[styles.meta, { color: palette.mutedText }]}>
+                  </ThemedText>
+                  <ThemedText style={[styles.meta, { color: palette.mutedText }]}>
                     {item.items}
-                  </Text>
+                  </ThemedText>
                 </View>
               </View>
             )}
@@ -235,6 +322,60 @@ const styles = StyleSheet.create({
   detailsCard: {
     borderRadius: 14,
     padding: 14,
+    marginBottom: 14,
+  },
+  preferencesCard: {
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  preferencesTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  preferenceLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  preferenceHelp: {
+    fontSize: 12,
+  },
+  fontSizeRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  fontSizeButton: {
+    flex: 1,
+    borderRadius: 10,
+    minHeight: 36,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fontSizeButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
   },
   detailLabel: {
     fontSize: 12,

@@ -2,12 +2,12 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
@@ -15,10 +15,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
 import { GlobalStyles } from "@/constants/theme";
+import { useAuth } from "@/context/AuthContext";
 import { useAppTheme } from "@/hooks/use-app-theme";
 
 export default function LoginScreen() {
   const { palette } = useAppTheme();
+  const { login, loading, error, clearError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -26,9 +28,12 @@ export default function LoginScreen() {
     return email.trim().length > 0 && password.length > 0;
   }, [email, password]);
 
-  const onLogin = () => {
-    if (!canContinue) return;
-    router.replace("/(tabs)");
+  const onLogin = async () => {
+    if (!canContinue || loading) return;
+    const ok = await login(email.trim(), password);
+    if (ok) {
+      router.replace("/(tabs)");
+    }
   };
 
   return (
@@ -120,7 +125,10 @@ export default function LoginScreen() {
                 />
                 <TextInput
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(v) => {
+                    clearError();
+                    setEmail(v);
+                  }}
                   placeholder="you@example.com"
                   placeholderTextColor={palette.inputPlaceholder}
                   autoCapitalize="none"
@@ -156,7 +164,10 @@ export default function LoginScreen() {
                 />
                 <TextInput
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(v) => {
+                    clearError();
+                    setPassword(v);
+                  }}
                   placeholder="••••••••"
                   placeholderTextColor={palette.inputPlaceholder}
                   autoCapitalize="none"
@@ -166,20 +177,30 @@ export default function LoginScreen() {
               </View>
             </View>
 
+            {!!error && (
+              <ThemedText style={[styles.apiError, { color: palette.danger }]}>
+                {error}
+              </ThemedText>
+            )}
+
             <Pressable
               onPress={onLogin}
-              disabled={!canContinue}
+              disabled={!canContinue || loading}
               android_ripple={{ color: "rgba(255,255,255,0.25)" }}
               style={({ pressed }) => [
                 styles.loginButton,
                 {
                   backgroundColor: palette.primary,
-                  opacity: !canContinue ? 0.45 : pressed ? 0.92 : 1,
-                  elevation: canContinue ? 4 : 0,
+                  opacity: !canContinue || loading ? 0.45 : pressed ? 0.92 : 1,
+                  elevation: canContinue && !loading ? 4 : 0,
                 },
               ]}
             >
-              <Text style={styles.loginButtonText}>Login</Text>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <ThemedText style={styles.loginButtonText}>Login</ThemedText>
+              )}
             </Pressable>
           </View>
         </ScrollView>
@@ -298,6 +319,11 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     letterSpacing: 0.3,
+  },
+  apiError: {
+    fontSize: 14,
+    marginTop: 4,
+    marginBottom: 4,
   },
   footer: {
     marginTop: 20,

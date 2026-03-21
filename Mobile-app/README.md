@@ -16,6 +16,20 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+## Backend API (Flask)
+
+The app talks to the repo’s Flask backend over HTTP.
+
+1. Copy `Mobile-app/.env.example` to `Mobile-app/.env`.
+2. Set `EXPO_PUBLIC_API_BASE_URL` to your backend origin **with no trailing slash**:
+   - iOS Simulator: `http://127.0.0.1:5000`
+   - Android emulator: `http://10.0.2.2:5000`
+   - Physical device: `http://<your-computer-LAN-IP>:5000` (same Wi‑Fi as the phone)
+3. Run the backend (`python app.py` from `backend/`) and ensure `JWT_SECRET_KEY` is set in `backend/.env` so login works.
+4. Restart Expo after changing `.env`.
+
+Client code lives under `Mobile-app/lib/api/` (Axios instance + `auth` / `products` modules). Session token is stored with AsyncStorage; see `Mobile-app/context/AuthContext.tsx`.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
