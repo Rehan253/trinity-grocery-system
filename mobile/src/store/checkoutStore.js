@@ -23,6 +23,7 @@ const formatApiError = (error, fallbackMessage) => {
   const data = error?.response?.data;
 
   if (data?.message) return data.message;
+  if (data?.msg) return data.msg;
   if (data?.errors && typeof data.errors === "object") {
     return Object.values(data.errors).join(", ");
   }

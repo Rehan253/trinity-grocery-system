@@ -41,6 +41,9 @@ class Config:
     PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "")
     PAYPAL_CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET", "")
     PAYPAL_CURRENCY = os.getenv("PAYPAL_CURRENCY", "USD")
+    PAYPAL_RETURN_URL = os.getenv("PAYPAL_RETURN_URL", "")
+    PAYPAL_CANCEL_URL = os.getenv("PAYPAL_CANCEL_URL", "")
+    PAYPAL_WEBHOOK_ID = os.getenv("PAYPAL_WEBHOOK_ID", "")
     PAYPAL_MOCK_MODE = os.getenv("PAYPAL_MOCK_MODE", "false").lower() in (
         "1",
         "true",

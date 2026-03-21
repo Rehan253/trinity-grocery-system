@@ -180,6 +180,7 @@ export default function HomeScreen() {
       params: {
         amount: cartSubtotal.toFixed(2),
         items: String(cartCount),
+        cartData: JSON.stringify(cartItems),
       },
     });
   }
