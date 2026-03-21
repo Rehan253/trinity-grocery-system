@@ -79,23 +79,7 @@ def get_paypal_access_token():
     return token
 
 
-def _paypal_redirect_urls():
-    configured_return = (current_app.config.get("PAYPAL_RETURN_URL") or "").strip()
-    configured_cancel = (current_app.config.get("PAYPAL_CANCEL_URL") or "").strip()
-
-    if has_request_context():
-        base_url = request.url_root.rstrip("/")
-        return_url = configured_return or f"{base_url}/payments/paypal/return"
-        cancel_url = configured_cancel or f"{base_url}/payments/paypal/cancel"
-        return return_url, cancel_url
-
-    return (
-        configured_return or "https://example.com/paypal/return",
-        configured_cancel or "https://example.com/paypal/cancel",
-    )
-
-
-def create_paypal_order(amount):
+def create_paypal_order(amount, return_url=None, cancel_url=None):
     amount_value = _amount_to_string(amount)
     currency = current_app.config.get("PAYPAL_CURRENCY", "USD")
 
@@ -134,6 +118,14 @@ def create_paypal_order(amount):
             }
         },
     }
+    ret = str(return_url or "").strip()
+    can = str(cancel_url or "").strip()
+    if ret and can:
+        payload["application_context"] = {
+            "return_url": ret,
+            "cancel_url": can,
+            "user_action": "PAY_NOW",
+        }
     response = requests.post(
         f"{_paypal_base_url()}/v2/checkout/orders",
         json=payload,

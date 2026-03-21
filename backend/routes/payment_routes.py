@@ -12,6 +12,7 @@ from services.paypal_service import (
     parse_capture_result,
     verify_paypal_webhook_signature,
 )
+from services.algolia_service import send_purchase_event_to_algolia
 
 
 payment_bp = Blueprint("payments", __name__, url_prefix="/payments")
@@ -45,12 +46,13 @@ def _load_owned_invoice(invoice_id, user_id):
     return invoice, None
 
 
-def _get_webhook_order_id(resource):
-    if not isinstance(resource, dict):
-        return None
-    supplementary = resource.get("supplementary_data") or {}
-    related_ids = supplementary.get("related_ids") or {}
-    return related_ids.get("order_id") or resource.get("id")
+def _send_algolia_purchase_event(invoice, user_id):
+    product_object_ids = [str(item.product_id) for item in invoice.invoice_items if item.product_id is not None]
+    if not product_object_ids:
+        return {"sent": False, "reason": "no invoice items"}
+
+    send_purchase_event_to_algolia(user_id=user_id, product_object_ids=product_object_ids)
+    return {"sent": True}
 
 
 @payment_bp.post("/paypal/create-order")
@@ -65,6 +67,8 @@ def paypal_create_order():
     user_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
     invoice_id = data.get("invoice_id")
+    return_url = data.get("return_url")
+    cancel_url = data.get("cancel_url")
 
     if invoice_id is None:
         return jsonify({"errors": {"invoice_id": "invoice_id is required"}}), 400
@@ -81,7 +85,11 @@ def paypal_create_order():
         return jsonify({"message": "Invoice is already paid", "invoice": _invoice_json(invoice)}), 400
 
     try:
-        order = create_paypal_order(total_amount)
+        order = create_paypal_order(
+            total_amount,
+            return_url=return_url,
+            cancel_url=cancel_url,
+        )
     except Exception as exc:  # noqa: BLE001
         return jsonify({"message": f"PayPal create order failed: {exc}"}), 502
 
@@ -185,6 +193,12 @@ def paypal_capture_order():
     invoice.paid_at = datetime.utcnow()
     db.session.commit()
 
+    algolia_event = {"sent": False}
+    try:
+        algolia_event = _send_algolia_purchase_event(invoice, user_id)
+    except Exception as exc:  # noqa: BLE001
+        algolia_event = {"sent": False, "reason": str(exc)}
+
     return (
         jsonify(
             {
@@ -193,6 +207,7 @@ def paypal_capture_order():
                 "capture_id": invoice.paypal_capture_id,
                 "captured_amount": format(captured_amount, ".2f"),
                 "currency_code": capture.get("currency_code"),
+                "algolia_purchase_event": algolia_event,
                 "invoice": _invoice_json(invoice),
             }
         ),

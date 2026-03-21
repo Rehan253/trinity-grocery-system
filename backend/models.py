@@ -52,7 +52,7 @@ class Product(db.Model):
     discount = db.Column(db.Float, nullable=True)
     quantity_in_stock = db.Column(db.Integer, nullable=False)
 
-    picture_url = db.Column(db.String(255), nullable=True)
+    picture_url = db.Column(db.Text, nullable=True)
     icon = db.Column(db.String(20), nullable=True)
     nutritional_info = db.Column(db.Text, nullable=True)
     ingredients = db.Column(db.Text, nullable=True)

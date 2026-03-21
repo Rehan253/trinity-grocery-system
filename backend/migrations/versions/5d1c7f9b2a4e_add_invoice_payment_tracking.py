@@ -17,6 +17,9 @@ depends_on = None
 
 
 def upgrade():
+    bind = op.get_bind()
+    is_sqlite = bind.dialect.name == "sqlite"
+
     with op.batch_alter_table("invoices", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
@@ -29,18 +32,25 @@ def upgrade():
         batch_op.add_column(sa.Column("paypal_order_id", sa.String(length=128), nullable=True))
         batch_op.add_column(sa.Column("paypal_capture_id", sa.String(length=128), nullable=True))
         batch_op.add_column(sa.Column("paid_at", sa.DateTime(), nullable=True))
-        batch_op.create_unique_constraint(
-            "uq_invoices_paypal_order_id", ["paypal_order_id"]
-        )
-        batch_op.create_unique_constraint(
-            "uq_invoices_paypal_capture_id", ["paypal_capture_id"]
-        )
+
+        # SQLite batch mode can fail with CircularDependencyError for these constraints.
+        if not is_sqlite:
+            batch_op.create_unique_constraint(
+                "uq_invoices_paypal_order_id", ["paypal_order_id"]
+            )
+            batch_op.create_unique_constraint(
+                "uq_invoices_paypal_capture_id", ["paypal_capture_id"]
+            )
 
 
 def downgrade():
+    bind = op.get_bind()
+    is_sqlite = bind.dialect.name == "sqlite"
+
     with op.batch_alter_table("invoices", schema=None) as batch_op:
-        batch_op.drop_constraint("uq_invoices_paypal_capture_id", type_="unique")
-        batch_op.drop_constraint("uq_invoices_paypal_order_id", type_="unique")
+        if not is_sqlite:
+            batch_op.drop_constraint("uq_invoices_paypal_capture_id", type_="unique")
+            batch_op.drop_constraint("uq_invoices_paypal_order_id", type_="unique")
         batch_op.drop_column("paid_at")
         batch_op.drop_column("paypal_capture_id")
         batch_op.drop_column("paypal_order_id")
