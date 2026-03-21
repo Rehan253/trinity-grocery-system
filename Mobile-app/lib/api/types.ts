@@ -60,3 +60,13 @@ export type ProductDto = {
   ingredients?: string[];
   rating?: number | null;
 };
+
+/** One row from GET /invoices/me */
+export type MyInvoiceSummaryDto = {
+  invoice_id: number;
+  total_amount: number;
+  created_at: string;
+  payment_status: string;
+  payment_method: string | null;
+  item_count: number;
+};

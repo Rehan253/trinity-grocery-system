@@ -1,8 +1,8 @@
 import type { ProductDto } from "@/lib/api/types";
+import { buildProductImageCandidates } from "@/lib/utils/productImageCandidates";
+import { PRODUCT_IMAGE_PLACEHOLDER } from "@/lib/utils/resolveProductImageUrl";
 
-/** When API has no image URL */
-export const PRODUCT_IMAGE_PLACEHOLDER =
-  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=60";
+export { PRODUCT_IMAGE_PLACEHOLDER };
 
 export type CatalogProduct = {
   id: string;
@@ -10,7 +10,8 @@ export type CatalogProduct = {
   unit: string;
   price: string;
   priceValue: number;
-  imageUri: string;
+  /** Try in order until one loads (stored URL, OFF CDN, placeholder). */
+  imageCandidates: string[];
   barcode: string;
   details: string;
   /** Original API row for filtering */
@@ -31,7 +32,7 @@ export function mapProductDtoToCatalog(dto: ProductDto): CatalogProduct {
     unit: dto.unit?.trim() || "—",
     price: formatPriceUsd(safePrice),
     priceValue: safePrice,
-    imageUri: dto.picture_url?.trim() || PRODUCT_IMAGE_PLACEHOLDER,
+    imageCandidates: buildProductImageCandidates(dto),
     barcode: (dto.barcode ?? "").trim(),
     details: dto.description?.trim() || "",
     source: dto,

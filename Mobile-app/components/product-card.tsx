@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { AppPalette, GlobalStyles, ThemeColors } from "@/constants/theme";
+import { PRODUCT_IMAGE_PLACEHOLDER } from "@/lib/utils/resolveProductImageUrl";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -20,7 +21,8 @@ type ProductCardProps = {
   isDark?: boolean;
   name: string;
   price: string;
-  imageUri: string;
+  /** Tried in order until one loads (stored URL, OFF variants, placeholder). */
+  imageUris: string[];
   unit?: string;
   onAddPress?: () => void;
 };
@@ -29,7 +31,7 @@ export function ProductCard({
   isDark = false,
   name,
   price,
-  imageUri,
+  imageUris,
   unit,
   onAddPress,
 }: ProductCardProps) {
@@ -39,6 +41,18 @@ export function ProductCard({
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const feedbackTranslateY = useRef(new Animated.Value(0)).current;
   const [showAddFeedback, setShowAddFeedback] = useState(false);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+
+  const effectiveUris =
+    imageUris.length > 0 ? imageUris : [PRODUCT_IMAGE_PLACEHOLDER];
+  const safeIndex = Math.min(candidateIndex, effectiveUris.length - 1);
+  const displayUri = effectiveUris[safeIndex] ?? PRODUCT_IMAGE_PLACEHOLDER;
+
+  const imageUrisKey = useMemo(() => imageUris.join("|"), [imageUris]);
+
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [imageUrisKey]);
 
   function handleAddWithEffect() {
     onAddPress?.();
@@ -104,9 +118,18 @@ export function ProductCard({
         ]}
       >
         <Image
-          source={{ uri: imageUri }}
+          source={{ uri: displayUri }}
           style={styles.image}
           contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={`${displayUri}-${safeIndex}`}
+          onError={() => {
+            setCandidateIndex((i) => {
+              const uris =
+                imageUris.length > 0 ? imageUris : [PRODUCT_IMAGE_PLACEHOLDER];
+              return i < uris.length - 1 ? i + 1 : i;
+            });
+          }}
         />
       </View>
 

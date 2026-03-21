@@ -298,7 +298,7 @@ export default function HomeScreen() {
             name={item.name}
             unit={item.unit}
             price={item.price}
-            imageUri={item.imageUri}
+            imageUris={item.imageCandidates}
             onAddPress={() => handleAddToCart(item.id)}
           />
         )}
