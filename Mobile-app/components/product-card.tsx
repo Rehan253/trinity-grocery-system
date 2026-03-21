@@ -3,19 +3,20 @@ import { Image } from "expo-image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 
 import { AppPalette, GlobalStyles, ThemeColors } from "@/constants/theme";
 import { PRODUCT_IMAGE_PLACEHOLDER } from "@/lib/utils/resolveProductImageUrl";
 
-const { width: screenWidth } = Dimensions.get("window");
-
-export const PRODUCT_CARD_WIDTH = screenWidth * 0.45;
+/** Must match home list `productsContent.paddingHorizontal` (16 each side). */
+const LIST_HORIZONTAL_INSET = 16 * 2;
+/** Must match home `productRow` gap between columns. */
+const COLUMN_GAP = 12;
 
 type ProductCardProps = {
   isDark?: boolean;
@@ -35,6 +36,12 @@ export function ProductCard({
   unit,
   onAddPress,
 }: ProductCardProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = Math.max(
+    140,
+    Math.floor((windowWidth - LIST_HORIZONTAL_INSET - COLUMN_GAP) / 2),
+  );
+
   const palette = isDark ? AppPalette.dark : AppPalette.light;
   const cardScale = useRef(new Animated.Value(1)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -107,7 +114,7 @@ export function ProductCard({
       style={[
         styles.card,
         GlobalStyles.card,
-        { backgroundColor: palette.surface },
+        { width: cardWidth, backgroundColor: palette.surface },
         { transform: [{ scale: cardScale }] },
       ]}
     >
@@ -180,7 +187,6 @@ export function ProductCard({
 
 const styles = StyleSheet.create({
   card: {
-    width: PRODUCT_CARD_WIDTH,
     backgroundColor: "#FFFFFF",
     padding: 12,
     marginBottom: 16,

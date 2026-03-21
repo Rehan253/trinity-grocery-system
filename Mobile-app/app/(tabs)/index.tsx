@@ -648,7 +648,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   productRow: {
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    gap: 12,
+    marginBottom: 0,
   },
   scannerScreen: {
     flex: 1,
