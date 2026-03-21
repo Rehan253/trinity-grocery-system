@@ -25,6 +25,7 @@ const Shop = () => {
     }, [fetchProducts])
 
     const getPreferenceStorageKey = (userId) => (userId ? `userPreferences:${userId}` : "userPreferences:guest")
+    const getAccessToken = () => localStorage.getItem("token") || sessionStorage.getItem("ACCESS_TOKEN")
 
     // Load user preferences
     useEffect(() => {
@@ -53,7 +54,8 @@ const Shop = () => {
                 setUserPreferences(null)
             }
 
-            if (isAuthenticated) {
+            const accessToken = getAccessToken()
+            if (isAuthenticated && accessToken) {
                 const response = await getUserPreferences()
                 if (!(response && response.status === "Error") && response) {
                     setUserPreferences(response)

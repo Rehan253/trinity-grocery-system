@@ -70,3 +70,73 @@ export type MyInvoiceSummaryDto = {
   payment_method: string | null;
   item_count: number;
 };
+
+export type DeliveryAddressPayload = {
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+  apartment?: string;
+  city: string;
+  state?: string;
+  zipCode: string;
+  deliveryNotes?: string;
+};
+
+export type CreateInvoicePayload = {
+  paymentMethod: "paypal" | "card" | "cod";
+  deliveryAddress: DeliveryAddressPayload;
+};
+
+export type CreateInvoiceResponse = {
+  message: string;
+  invoice_id: number;
+  created_at: string;
+  payment_status: string;
+};
+
+export type AddInvoiceItemPayload = {
+  product_id: number;
+  quantity: number;
+};
+
+export type PaypalCreateOrderResponse = {
+  message: string;
+  order_id: string;
+  order_status?: string;
+  approve_url?: string | null;
+  amount_value?: string;
+  currency_code?: string;
+};
+
+export type PaypalCaptureOrderResponse = {
+  message: string;
+  capture_status: string;
+  capture_id?: string | null;
+  captured_amount?: string;
+  currency_code?: string | null;
+  algolia_purchase_event?: {
+    sent: boolean;
+    reason?: string;
+  };
+};
+
+export type RecommendationItemDto = {
+  objectID: string;
+  name?: string | null;
+  brand?: string | null;
+  category?: string | null;
+  price?: number | null;
+  picture_url?: string | null;
+};
+
+export type RecommendationsResponse = {
+  user_id: number;
+  purchased_product_ids: number[];
+  checkout_based_count: number;
+  also_bought_count: number;
+  recommended_count: number;
+  checkout_based: RecommendationItemDto[];
+  also_bought: RecommendationItemDto[];
+  recommendations: RecommendationItemDto[];
+};

@@ -1,5 +1,6 @@
 import json
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
+import requests
 from sqlalchemy.exc import IntegrityError
 
 from extensions import db
@@ -106,13 +107,27 @@ def import_products():
         description: Admin access required
     """
 
+    limit = request.args.get("limit")
+    if limit is not None:
+        try:
+            limit = int(limit)
+        except (TypeError, ValueError):
+            return jsonify({"message": "limit must be a positive integer"}), 400
+        if limit <= 0:
+            return jsonify({"message": "limit must be a positive integer"}), 400
+
+    selected_barcodes = BARCODES[:limit] if limit else BARCODES
+
     imported = 0
     skipped = 0
     errors = 0
+    consecutive_network_errors = 0
+    last_network_error = None
 
-    for barcode in BARCODES:
+    for barcode in selected_barcodes:
         try:
             data = fetch_product_by_barcode(barcode)
+            consecutive_network_errors = 0
             if not data:
                 skipped += 1
                 continue
@@ -169,6 +184,25 @@ def import_products():
             db.session.commit()
             imported += 1
 
+        except requests.RequestException as exc:
+            db.session.rollback()
+            errors += 1
+            consecutive_network_errors += 1
+            last_network_error = str(exc)
+
+            # Fail fast instead of hanging through many network timeouts.
+            if imported == 0 and consecutive_network_errors >= 3:
+                return jsonify(
+                    {
+                        "message": "Import stopped: cannot reach OpenFoodFacts",
+                        "attempted": len(selected_barcodes),
+                        "processed": imported + skipped + errors,
+                        "imported": imported,
+                        "skipped": skipped,
+                        "errors": errors,
+                        "last_error": last_network_error,
+                    }
+                ), 502
         except IntegrityError:
             db.session.rollback()
             skipped += 1
@@ -176,9 +210,16 @@ def import_products():
             db.session.rollback()
             errors += 1
 
-    return jsonify({
+    result = {
         "message": "Import completed",
+        "attempted": len(selected_barcodes),
+        "total_available": len(BARCODES),
+        "processed": imported + skipped + errors,
         "imported": imported,
         "skipped": skipped,
-        "errors": errors
-    }), 200
+        "errors": errors,
+    }
+    if last_network_error:
+        result["last_network_error"] = last_network_error
+
+    return jsonify(result), 200

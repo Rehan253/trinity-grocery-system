@@ -1,6 +1,9 @@
 import requests
 
 BASE_V2_URL = "https://world.openfoodfacts.org/api/v2/product"
+REQUEST_HEADERS = {
+    "User-Agent": "TrinityGrocery/1.0 (dev; contact: admin@trinity.com)",
+}
 
 
 def fetch_product_by_barcode(barcode: str):
@@ -9,7 +12,7 @@ def fetch_product_by_barcode(barcode: str):
     """
     url = f"{BASE_V2_URL}/{barcode}"
 
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, headers=REQUEST_HEADERS, timeout=(3, 6))
     response.raise_for_status()
 
     data = response.json()

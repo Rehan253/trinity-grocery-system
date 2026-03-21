@@ -104,14 +104,83 @@ export const sendDelete = async (url, body, baseUrl) => {
     }
 }
 
+const AUTH_STORE_KEY = "authStore"
+
+const getStoredAccessToken = () => localStorage.getItem("token") || sessionStorage.getItem("ACCESS_TOKEN")
+
+const decodeJwtPayload = (token) => {
+    if (!token || typeof token !== "string") {
+        return null
+    }
+
+    try {
+        const payloadPart = token.split(".")[1]
+        if (!payloadPart) {
+            return null
+        }
+
+        const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/")
+        const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")
+        return JSON.parse(atob(padded))
+    } catch {
+        return null
+    }
+}
+
+const isJwtExpired = (token) => {
+    const payload = decodeJwtPayload(token)
+    if (!payload || !payload.exp) {
+        return false
+    }
+    return Date.now() >= Number(payload.exp) * 1000
+}
+
+const clearPersistedAuthStore = () => {
+    try {
+        const raw = localStorage.getItem(AUTH_STORE_KEY)
+        if (!raw) {
+            return
+        }
+
+        const parsed = JSON.parse(raw)
+        if (!parsed || typeof parsed !== "object") {
+            return
+        }
+
+        const previousState = parsed.state || {}
+        parsed.state = {
+            ...previousState,
+            user: null,
+            token: null,
+            isAuthenticated: false
+        }
+
+        localStorage.setItem(AUTH_STORE_KEY, JSON.stringify(parsed))
+    } catch {
+        // Ignore invalid persisted auth state shape.
+    }
+}
+
+const clearAuthSession = () => {
+    localStorage.removeItem("token")
+    localStorage.removeItem("user")
+    sessionStorage.removeItem("ACCESS_TOKEN")
+    delete axios.defaults.headers.common["Authorization"]
+    clearPersistedAuthStore()
+}
+
 const setHeader = () => {
-    const accessToken = localStorage.getItem("token") || sessionStorage.getItem("ACCESS_TOKEN")
+    const accessToken = getStoredAccessToken()
 
     axios.defaults.withCredentials = true
     axios.defaults.headers.common["Access-Control-Allow-Origin"] = "*"
-    if (accessToken) {
-        axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`
+
+    if (!accessToken || isJwtExpired(accessToken)) {
+        clearAuthSession()
+        return
     }
+
+    axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`
 }
 
 const handleResponse = (response) => {
@@ -130,8 +199,12 @@ const handleResponse = (response) => {
 
         return response.data
     } else {
+        if (response.status === 401) {
+            clearAuthSession()
+        }
+
         const errorMessage = formatErrorMessage(
-            response.data?.errors || response.data?.message || "An unknown error occurred"
+            response.data?.errors || response.data?.message || response.data?.msg || response.data || "An unknown error occurred"
         )
         // alert(errorMessage)
         return {

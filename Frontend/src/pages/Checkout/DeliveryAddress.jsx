@@ -5,7 +5,7 @@ import { useCart } from "../../context/CartContext"
 import { addInvoiceItem, createInvoice } from "../../api/invoices"
 
 const DeliveryAddress = () => {
-    const { cartItems, subtotal, tax, shipping, total, clearCart } = useCart()
+    const { cartItems, subtotal, tax, shipping, total } = useCart()
     const navigate = useNavigate()
     const [formData, setFormData] = useState({
         fullName: "",
@@ -66,22 +66,36 @@ const DeliveryAddress = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (validateForm()) {
-            setOrderError(null)
-            setIsSubmitting(true)
-            // Save delivery address to localStorage or context
+        if (!validateForm()) {
+            return
+        }
+
+        setOrderError(null)
+        setIsSubmitting(true)
+
+        try {
+            // Store checkout context used by payment step.
             localStorage.setItem("freshexpress-delivery-address", JSON.stringify(formData))
+            localStorage.setItem(
+                "freshexpress-checkout-summary",
+                JSON.stringify({ subtotal, tax, shipping, total })
+            )
+
             const invoiceResponse = await createInvoice({
                 deliveryAddress: formData,
-                paymentMethod: "cod"
+                paymentMethod: "paypal"
             })
             if (invoiceResponse && invoiceResponse.status === "Error") {
-                setOrderError(invoiceResponse.errorMessage || "Failed to place order")
-                setIsSubmitting(false)
+                setOrderError(invoiceResponse.errorMessage || "Failed to create invoice")
                 return
             }
 
-            const invoiceId = invoiceResponse.invoice_id
+            const invoiceId = invoiceResponse?.invoice_id
+            if (!invoiceId) {
+                setOrderError("Invoice ID missing in response")
+                return
+            }
+
             const itemResponses = await Promise.all(
                 cartItems.map((item) =>
                     addInvoiceItem(invoiceId, {
@@ -92,25 +106,16 @@ const DeliveryAddress = () => {
             )
             const failedItem = itemResponses.find((resp) => resp && resp.status === "Error")
             if (failedItem) {
-                setOrderError(failedItem.errorMessage || "Failed to add items to order")
-                setIsSubmitting(false)
+                setOrderError(failedItem.errorMessage || "Failed to add items to invoice")
                 return
             }
 
-            const orderData = {
-                orderNumber: `INV-${invoiceId}`,
-                date: new Date().toISOString(),
-                items: cartItems,
-                deliveryAddress: formData,
-                paymentMethod: "cod",
-                subtotal,
-                tax,
-                shipping,
-                total
-            }
-            localStorage.setItem("freshexpress-last-order", JSON.stringify(orderData))
-            clearCart()
-            navigate("/checkout/confirmation")
+            localStorage.setItem("freshexpress-checkout-invoice-id", String(invoiceId))
+            navigate("/checkout/payment")
+        } catch (error) {
+            setOrderError(error?.message || "Failed to continue to payment")
+        } finally {
+            setIsSubmitting(false)
         }
     }
 
@@ -381,8 +386,9 @@ const DeliveryAddress = () => {
                                     </button>
                                     <button
                                         type="submit"
+                                        disabled={isSubmitting}
                                         className="flex-1 bg-premium-primary hover:bg-opacity-90 text-white py-3 rounded-[--radius-button] font-semibold shadow-lg hover:shadow-xl transition-all duration-200">
-                                        {isSubmitting ? "Placing Order..." : "Place Order"}
+                                        {isSubmitting ? "Creating Invoice..." : "Continue to Payment"}
                                     </button>
                                 </div>
                             </form>

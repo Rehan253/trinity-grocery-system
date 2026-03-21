@@ -2,6 +2,7 @@ import os
 import requests
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import or_
 
 from models import Invoice, Product, User
 from security.authorization import admin_required
@@ -42,6 +43,101 @@ def _recommend_for_product(product_id: int, limit: int = 8):
     resp.raise_for_status()
     data = resp.json()
     return data.get("results", [{}])[0].get("hits", [])
+
+
+def _product_to_json(product):
+    return {
+        "objectID": str(product.id),
+        "name": product.name,
+        "brand": product.brand,
+        "category": product.category,
+        "price": float(product.price),
+        "picture_url": product.picture_url,
+    }
+
+
+def _recommend_checkout_based(purchased_product_ids, limit=8):
+    excluded_ids = [pid for pid in purchased_product_ids if pid is not None]
+
+    if not excluded_ids:
+        fallback = Product.query.order_by(Product.created_at.desc()).limit(limit).all()
+        return [_product_to_json(product) for product in fallback]
+
+    purchased_products = Product.query.filter(Product.id.in_(excluded_ids)).all()
+    categories = [product.category for product in purchased_products if product.category]
+    brands = [product.brand for product in purchased_products if product.brand]
+
+    query = Product.query.filter(~Product.id.in_(excluded_ids))
+    if categories or brands:
+        filters = []
+        if categories:
+            filters.append(Product.category.in_(categories))
+        if brands:
+            filters.append(Product.brand.in_(brands))
+        query = query.filter(or_(*filters))
+
+    candidates = query.order_by(Product.created_at.desc()).limit(limit * 2).all()
+    checkout_based = [_product_to_json(product) for product in candidates][:limit]
+
+    if checkout_based:
+        return checkout_based
+
+    fallback = Product.query.filter(~Product.id.in_(excluded_ids)).order_by(Product.created_at.desc()).limit(limit).all()
+    return [_product_to_json(product) for product in fallback]
+
+
+def _recommend_also_bought(purchased_product_ids, limit=8):
+    if not purchased_product_ids:
+        return []
+
+    also_bought = []
+    seen = set(str(pid) for pid in purchased_product_ids if pid is not None)
+
+    for product_id in purchased_product_ids:
+        try:
+            hits = _recommend_for_product(product_id, limit=limit)
+        except Exception:
+            hits = []
+
+        for hit in hits:
+            object_id = str(hit.get("objectID", ""))
+            if not object_id or object_id in seen:
+                continue
+
+            seen.add(object_id)
+            also_bought.append(
+                {
+                    "objectID": object_id,
+                    "name": hit.get("name"),
+                    "brand": hit.get("brand"),
+                    "category": hit.get("category"),
+                    "price": hit.get("price"),
+                    "picture_url": hit.get("picture_url"),
+                }
+            )
+
+            if len(also_bought) >= limit:
+                return also_bought
+
+    return also_bought
+
+
+def _merge_unique_recommendations(*recommendation_lists, limit=12):
+    merged = []
+    seen = set()
+
+    for recommendation_list in recommendation_lists:
+        for recommendation in recommendation_list:
+            object_id = str(recommendation.get("objectID", ""))
+            if not object_id or object_id in seen:
+                continue
+            seen.add(object_id)
+            merged.append(recommendation)
+
+            if len(merged) >= limit:
+                return merged
+
+    return merged
 
 
 @recommendation_bp.post("/sync-products")
@@ -102,50 +198,28 @@ def get_recommendations(user_id):
 
     purchased_product_ids = list(dict.fromkeys(purchased_product_ids))[:5]
 
-    # 2) Ask Algolia for bought-together recommendations
-    merged = []
-    seen = set(str(pid) for pid in purchased_product_ids)
+    # 2) Build two recommendation categories:
+    # checkout_based: from user's own paid checkout profile (category/brand similarity)
+    # also_bought: Algolia bought-together model (community behavior)
+    checkout_based = _recommend_checkout_based(purchased_product_ids, limit=8)
+    also_bought = _recommend_also_bought(purchased_product_ids, limit=8)
+    merged = _merge_unique_recommendations(also_bought, checkout_based, limit=12)
 
-    for pid in purchased_product_ids:
-        try:
-            hits = _recommend_for_product(pid, limit=8)
-        except Exception:
-            hits = []
-
-        for h in hits:
-            oid = str(h.get("objectID", ""))
-            if not oid or oid in seen:
-                continue
-            seen.add(oid)
-            merged.append(
-                {
-                    "objectID": oid,
-                    "name": h.get("name"),
-                    "brand": h.get("brand"),
-                    "category": h.get("category"),
-                    "price": h.get("price"),
-                    "picture_url": h.get("picture_url"),
-                }
-            )
-
-    # 3) Fallback if user has no history yet
+    # Safety fallback to keep API non-empty for frontend
     if not merged:
         fallback_products = Product.query.order_by(Product.created_at.desc()).limit(8).all()
-        merged = [
-            {
-                "objectID": str(p.id),
-                "name": p.name,
-                "brand": p.brand,
-                "category": p.category,
-                "price": float(p.price),
-                "picture_url": p.picture_url,
-            }
-            for p in fallback_products
-        ]
+        merged = [_product_to_json(product) for product in fallback_products]
+        if not checkout_based:
+            checkout_based = merged[:8]
 
     return jsonify(
         {
             "user_id": user_id,
+            "purchased_product_ids": [int(pid) for pid in purchased_product_ids if pid is not None],
+            "checkout_based_count": len(checkout_based),
+            "also_bought_count": len(also_bought),
+            "checkout_based": checkout_based[:12],
+            "also_bought": also_bought[:12],
             "recommended_count": len(merged),
             "recommendations": merged[:12],
         }
