@@ -16,7 +16,7 @@ export default function ScannerScreen({ navigation }) {
   const cartCount = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
   const onSearch = async () => {
-    setAddedMessage("");
+    setAddedMessage(""); 
     setScanMessage("");
     await fetchByBarcode(barcode);
   };

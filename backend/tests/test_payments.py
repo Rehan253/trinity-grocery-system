@@ -286,3 +286,108 @@ def test_create_paypal_order_rejects_zero_total_invoice(client):
 
     assert response.status_code == 400
     assert body["message"] == "Invoice total must be greater than 0"
+
+
+def test_paypal_webhook_rejects_invalid_signature(client, monkeypatch):
+    monkeypatch.setattr(
+        "routes.payment_routes.verify_paypal_webhook_signature",
+        lambda headers, payload: False,
+    )
+
+    response = client.post(
+        "/payments/paypal/webhook",
+        json={"event_type": "PAYMENT.CAPTURE.COMPLETED"},
+    )
+    body = response.get_json()
+
+    assert response.status_code == 400
+    assert body["message"] == "Invalid PayPal webhook signature"
+
+
+def test_paypal_webhook_marks_invoice_paid_on_capture_completed(client, app, monkeypatch):
+    email = "payments.webhook.success@example.com"
+    register_user(client, email)
+    token = login_and_get_token(client, email)
+
+    product_id = create_product(app, price=5.0)
+    invoice_id = create_invoice(client, token)
+    add_invoice_item(client, token, invoice_id, product_id, 2)  # total 10.00
+
+    with app.app_context():
+        invoice = Invoice.query.get(invoice_id)
+        invoice.payment_method = "paypal"
+        invoice.payment_status = "pending"
+        invoice.paypal_order_id = "ORDER-WEBHOOK-1"
+        db.session.commit()
+
+    monkeypatch.setattr(
+        "routes.payment_routes.verify_paypal_webhook_signature",
+        lambda headers, payload: True,
+    )
+
+    payload = {
+        "event_type": "PAYMENT.CAPTURE.COMPLETED",
+        "resource": {
+            "id": "CAPTURE-WEBHOOK-1",
+            "amount": {"currency_code": "USD", "value": "10.00"},
+            "supplementary_data": {
+                "related_ids": {"order_id": "ORDER-WEBHOOK-1"},
+            },
+        },
+    }
+    response = client.post("/payments/paypal/webhook", json=payload)
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["handled"] is True
+    assert body["invoice"]["payment_status"] == "paid"
+    assert body["invoice"]["paypal_capture_id"] == "CAPTURE-WEBHOOK-1"
+
+    with app.app_context():
+        invoice = Invoice.query.get(invoice_id)
+        assert invoice.payment_status == "paid"
+        assert invoice.paypal_capture_id == "CAPTURE-WEBHOOK-1"
+        assert invoice.paid_at is not None
+
+
+def test_paypal_webhook_marks_invoice_failed_on_amount_mismatch(client, app, monkeypatch):
+    email = "payments.webhook.mismatch@example.com"
+    register_user(client, email)
+    token = login_and_get_token(client, email)
+
+    product_id = create_product(app, price=10.0)
+    invoice_id = create_invoice(client, token)
+    add_invoice_item(client, token, invoice_id, product_id, 1)  # total 10.00
+
+    with app.app_context():
+        invoice = Invoice.query.get(invoice_id)
+        invoice.payment_method = "paypal"
+        invoice.payment_status = "pending"
+        invoice.paypal_order_id = "ORDER-WEBHOOK-2"
+        db.session.commit()
+
+    monkeypatch.setattr(
+        "routes.payment_routes.verify_paypal_webhook_signature",
+        lambda headers, payload: True,
+    )
+
+    payload = {
+        "event_type": "PAYMENT.CAPTURE.COMPLETED",
+        "resource": {
+            "id": "CAPTURE-WEBHOOK-2",
+            "amount": {"currency_code": "USD", "value": "9.00"},
+            "supplementary_data": {
+                "related_ids": {"order_id": "ORDER-WEBHOOK-2"},
+            },
+        },
+    }
+    response = client.post("/payments/paypal/webhook", json=payload)
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert body["message"] == "Webhook processed: amount mismatch"
+    assert body["invoice"]["payment_status"] == "failed"
+
+    with app.app_context():
+        invoice = Invoice.query.get(invoice_id)
+        assert invoice.payment_status == "failed"

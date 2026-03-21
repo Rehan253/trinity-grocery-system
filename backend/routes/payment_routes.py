@@ -10,6 +10,7 @@ from services.paypal_service import (
     capture_paypal_order,
     create_paypal_order,
     parse_capture_result,
+    verify_paypal_webhook_signature,
 )
 
 
@@ -42,6 +43,14 @@ def _load_owned_invoice(invoice_id, user_id):
     if invoice.user_id != user_id:
         return None, (jsonify({"message": "You are not allowed to access this invoice"}), 403)
     return invoice, None
+
+
+def _get_webhook_order_id(resource):
+    if not isinstance(resource, dict):
+        return None
+    supplementary = resource.get("supplementary_data") or {}
+    related_ids = supplementary.get("related_ids") or {}
+    return related_ids.get("order_id") or resource.get("id")
 
 
 @payment_bp.post("/paypal/create-order")
@@ -185,6 +194,152 @@ def paypal_capture_order():
                 "captured_amount": format(captured_amount, ".2f"),
                 "currency_code": capture.get("currency_code"),
                 "invoice": _invoice_json(invoice),
+            }
+        ),
+        200,
+    )
+
+
+@payment_bp.get("/paypal/return")
+def paypal_return():
+    return jsonify({"message": "PayPal approval completed. You can return to the mobile app."}), 200
+
+
+@payment_bp.get("/paypal/cancel")
+def paypal_cancel():
+    return jsonify({"message": "PayPal approval was cancelled. Return to the mobile app."}), 200
+
+
+@payment_bp.post("/paypal/webhook")
+def paypal_webhook():
+    """
+    Receive and process PayPal webhook events
+    ---
+    tags:
+      - Payments
+    """
+    payload = request.get_json(silent=True) or {}
+    event_type = (payload.get("event_type") or "").upper()
+    resource = payload.get("resource") or {}
+
+    try:
+        verified = verify_paypal_webhook_signature(request.headers, payload)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"message": f"Webhook verification failed: {exc}"}), 502
+
+    if not verified:
+        return jsonify({"message": "Invalid PayPal webhook signature"}), 400
+
+    order_id = _get_webhook_order_id(resource)
+    invoice = Invoice.query.filter_by(paypal_order_id=order_id).first() if order_id else None
+
+    if event_type == "PAYMENT.CAPTURE.COMPLETED":
+        if not invoice:
+            return (
+                jsonify(
+                    {
+                        "message": "Webhook ignored: invoice not found",
+                        "event_type": event_type,
+                    }
+                ),
+                200,
+            )
+
+        amount = resource.get("amount") or {}
+        captured_amount = _to_money(amount.get("value"))
+        expected_amount = _to_money(invoice.total_amount)
+        if captured_amount is None or expected_amount is None or captured_amount != expected_amount:
+            invoice.payment_status = "failed"
+            db.session.commit()
+            return (
+                jsonify(
+                    {
+                        "message": "Webhook processed: amount mismatch",
+                        "event_type": event_type,
+                        "invoice": _invoice_json(invoice),
+                    }
+                ),
+                200,
+            )
+
+        invoice.payment_method = "paypal"
+        invoice.payment_status = "paid"
+        invoice.paypal_capture_id = resource.get("id")
+        invoice.paid_at = datetime.utcnow()
+        db.session.commit()
+        return (
+            jsonify(
+                {
+                    "message": "Webhook processed",
+                    "event_type": event_type,
+                    "handled": True,
+                    "invoice": _invoice_json(invoice),
+                }
+            ),
+            200,
+        )
+
+    if event_type in {
+        "PAYMENT.CAPTURE.DENIED",
+        "PAYMENT.CAPTURE.DECLINED",
+        "PAYMENT.CAPTURE.REVERSED",
+    }:
+        if invoice:
+            invoice.payment_status = "failed"
+            db.session.commit()
+            return (
+                jsonify(
+                    {
+                        "message": "Webhook processed",
+                        "event_type": event_type,
+                        "handled": True,
+                        "invoice": _invoice_json(invoice),
+                    }
+                ),
+                200,
+            )
+        return (
+            jsonify(
+                {
+                    "message": "Webhook ignored: invoice not found",
+                    "event_type": event_type,
+                }
+            ),
+            200,
+        )
+
+    if event_type == "CHECKOUT.ORDER.APPROVED":
+        if invoice and invoice.payment_status == "unpaid":
+            invoice.payment_status = "pending"
+            db.session.commit()
+            return (
+                jsonify(
+                    {
+                        "message": "Webhook processed",
+                        "event_type": event_type,
+                        "handled": True,
+                        "invoice": _invoice_json(invoice),
+                    }
+                ),
+                200,
+            )
+        return (
+            jsonify(
+                {
+                    "message": "Webhook ignored",
+                    "event_type": event_type,
+                    "handled": False,
+                }
+            ),
+            200,
+        )
+
+    return (
+        jsonify(
+            {
+                "message": "Webhook ignored",
+                "event_type": event_type,
+                "handled": False,
             }
         ),
         200,

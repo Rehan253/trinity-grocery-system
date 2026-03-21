@@ -1,8 +1,12 @@
 import os
+from dotenv import load_dotenv
+
+# Load .env before importing modules that read environment variables at import time.
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
-from dotenv import load_dotenv
 from routes.product_routes import product_bp
 from routes.invoice_routes import invoice_bp
 from routes.payment_routes import payment_bp
@@ -16,8 +20,6 @@ from extensions import db, migrate
 import models
 
 from routes.auth_routes import auth_bp
-
-load_dotenv()
 
 try:
     from flasgger import Swagger
