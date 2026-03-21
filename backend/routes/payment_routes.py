@@ -7,6 +7,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from extensions import db
 from models import Invoice
 from services.paypal_service import (
+    _is_mock_mode,
     capture_paypal_order,
     create_paypal_order,
     parse_capture_result,
@@ -118,6 +119,7 @@ def paypal_create_order():
                 "approve_url": order.get("approve_url"),
                 "currency_code": order.get("currency_code"),
                 "amount_value": order.get("amount_value"),
+                "mock": _is_mock_mode(),
                 "invoice": _invoice_json(invoice),
             }
         ),
