@@ -57,5 +57,6 @@ export type ProductDto = {
   picture_url?: string | null;
   icon?: string | null;
   dietaryTags?: string[];
+  ingredients?: string[];
   rating?: number | null;
 };
