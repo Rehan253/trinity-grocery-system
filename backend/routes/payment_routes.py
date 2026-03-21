@@ -66,6 +66,8 @@ def paypal_create_order():
     user_id = int(get_jwt_identity())
     data = request.get_json(silent=True) or {}
     invoice_id = data.get("invoice_id")
+    return_url = data.get("return_url")
+    cancel_url = data.get("cancel_url")
 
     if invoice_id is None:
         return jsonify({"errors": {"invoice_id": "invoice_id is required"}}), 400
@@ -82,7 +84,11 @@ def paypal_create_order():
         return jsonify({"message": "Invoice is already paid", "invoice": _invoice_json(invoice)}), 400
 
     try:
-        order = create_paypal_order(total_amount)
+        order = create_paypal_order(
+            total_amount,
+            return_url=return_url,
+            cancel_url=cancel_url,
+        )
     except Exception as exc:  # noqa: BLE001
         return jsonify({"message": f"PayPal create order failed: {exc}"}), 502
 

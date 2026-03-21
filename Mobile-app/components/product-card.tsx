@@ -1,26 +1,29 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 
 import { AppPalette, GlobalStyles, ThemeColors } from "@/constants/theme";
+import { PRODUCT_IMAGE_PLACEHOLDER } from "@/lib/utils/resolveProductImageUrl";
 
-const { width: screenWidth } = Dimensions.get("window");
-
-export const PRODUCT_CARD_WIDTH = screenWidth * 0.45;
+/** Must match home list `productsContent.paddingHorizontal` (16 each side). */
+const LIST_HORIZONTAL_INSET = 16 * 2;
+/** Must match home `productRow` gap between columns. */
+const COLUMN_GAP = 12;
 
 type ProductCardProps = {
   isDark?: boolean;
   name: string;
   price: string;
-  imageUri: string;
+  /** Tried in order until one loads (stored URL, OFF variants, placeholder). */
+  imageUris: string[];
   unit?: string;
   onAddPress?: () => void;
 };
@@ -29,16 +32,34 @@ export function ProductCard({
   isDark = false,
   name,
   price,
-  imageUri,
+  imageUris,
   unit,
   onAddPress,
 }: ProductCardProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = Math.max(
+    140,
+    Math.floor((windowWidth - LIST_HORIZONTAL_INSET - COLUMN_GAP) / 2),
+  );
+
   const palette = isDark ? AppPalette.dark : AppPalette.light;
   const cardScale = useRef(new Animated.Value(1)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const feedbackTranslateY = useRef(new Animated.Value(0)).current;
   const [showAddFeedback, setShowAddFeedback] = useState(false);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+
+  const effectiveUris =
+    imageUris.length > 0 ? imageUris : [PRODUCT_IMAGE_PLACEHOLDER];
+  const safeIndex = Math.min(candidateIndex, effectiveUris.length - 1);
+  const displayUri = effectiveUris[safeIndex] ?? PRODUCT_IMAGE_PLACEHOLDER;
+
+  const imageUrisKey = useMemo(() => imageUris.join("|"), [imageUris]);
+
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [imageUrisKey]);
 
   function handleAddWithEffect() {
     onAddPress?.();
@@ -93,7 +114,7 @@ export function ProductCard({
       style={[
         styles.card,
         GlobalStyles.card,
-        { backgroundColor: palette.surface },
+        { width: cardWidth, backgroundColor: palette.surface },
         { transform: [{ scale: cardScale }] },
       ]}
     >
@@ -104,9 +125,18 @@ export function ProductCard({
         ]}
       >
         <Image
-          source={{ uri: imageUri }}
+          source={{ uri: displayUri }}
           style={styles.image}
           contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={`${displayUri}-${safeIndex}`}
+          onError={() => {
+            setCandidateIndex((i) => {
+              const uris =
+                imageUris.length > 0 ? imageUris : [PRODUCT_IMAGE_PLACEHOLDER];
+              return i < uris.length - 1 ? i + 1 : i;
+            });
+          }}
         />
       </View>
 
@@ -157,7 +187,6 @@ export function ProductCard({
 
 const styles = StyleSheet.create({
   card: {
-    width: PRODUCT_CARD_WIDTH,
     backgroundColor: "#FFFFFF",
     padding: 12,
     marginBottom: 16,

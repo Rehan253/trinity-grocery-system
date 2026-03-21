@@ -71,7 +71,7 @@ def get_paypal_access_token():
     return token
 
 
-def create_paypal_order(amount):
+def create_paypal_order(amount, return_url=None, cancel_url=None):
     amount_value = _amount_to_string(amount)
     currency = current_app.config.get("PAYPAL_CURRENCY", "USD")
 
@@ -98,6 +98,14 @@ def create_paypal_order(amount):
             }
         ],
     }
+    ret = str(return_url or "").strip()
+    can = str(cancel_url or "").strip()
+    if ret and can:
+        payload["application_context"] = {
+            "return_url": ret,
+            "cancel_url": can,
+            "user_action": "PAY_NOW",
+        }
     response = requests.post(
         f"{_paypal_base_url()}/v2/checkout/orders",
         json=payload,

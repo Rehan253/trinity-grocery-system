@@ -1,5 +1,6 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
+import { useAccessibilitySettings } from '@/hooks/use-accessibility-settings';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export type ThemedTextProps = TextProps & {
@@ -16,6 +17,7 @@ export function ThemedText({
   ...rest
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const { fontScale, boldText } = useAccessibilitySettings();
 
   return (
     <Text
@@ -26,6 +28,11 @@ export function ThemedText({
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
         type === 'subtitle' ? styles.subtitle : undefined,
         type === 'link' ? styles.link : undefined,
+        {
+          fontSize: getScaledValue(type, "fontSize", fontScale),
+          lineHeight: getScaledValue(type, "lineHeight", fontScale),
+          fontWeight: boldText ? '700' : undefined,
+        },
         style,
       ]}
       {...rest}
@@ -58,3 +65,13 @@ const styles = StyleSheet.create({
     color: '#0a7ea4',
   },
 });
+
+function getScaledValue(
+  type: NonNullable<ThemedTextProps['type']>,
+  key: 'fontSize' | 'lineHeight',
+  scale: number,
+) {
+  const styleForType = styles[type];
+  const baseValue = styleForType?.[key];
+  return typeof baseValue === 'number' ? Math.round(baseValue * scale) : undefined;
+}

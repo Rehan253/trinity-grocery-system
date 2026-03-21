@@ -4,20 +4,30 @@ import {
   type BarcodeScanningResult,
 } from "expo-camera";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
+  unstable_batchedUpdates,
 } from "react-native";
 
 import { CategoryScroll } from "@/components/category-scroll";
 import { Header } from "@/components/header";
 import { ProductCard } from "@/components/product-card";
 import { useAppTheme } from "@/hooks/use-app-theme";
+import { fetchProductByBarcode, fetchProducts } from "@/lib/api/products";
+import { getApiErrorMessage } from "@/lib/api/client";
+import { productMatchesCategoryTab } from "@/lib/utils/categoryMapping";
+import {
+  mapProductDtoToCatalog,
+  type CatalogProduct,
+} from "@/lib/utils/productMapper";
 
 const categories = [
   { id: "all", label: "All", icon: "apps" as const },
@@ -28,158 +38,29 @@ const categories = [
   { id: "snacks", label: "Snacks", icon: "cookie" as const },
 ];
 
-type Product = {
-  id: string;
-  category: string;
-  name: string;
-  unit: string;
-  price: string;
-  imageUri: string;
-  barcode: string;
-  details: string;
-};
-
-const products: Product[] = [
-  {
-    id: "1",
-    category: "fruits",
-    name: "Red Apples",
-    unit: "1 kg",
-    price: "$4.99",
-    barcode: "200000000001",
-    details: "Fresh Washington apples, sweet and crisp.",
-    imageUri:
-      "https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "2",
-    category: "fruits",
-    name: "Bananas",
-    unit: "1 dozen",
-    price: "$2.49",
-    barcode: "200000000002",
-    details: "Ripe Cavendish bananas, naturally sweet.",
-    imageUri:
-      "https://images.unsplash.com/photo-1574226516831-e1dff420e37f?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "3",
-    category: "vegetables",
-    name: "Broccoli",
-    unit: "500 g",
-    price: "$3.25",
-    barcode: "200000000003",
-    details: "Farm-fresh broccoli rich in vitamins.",
-    imageUri:
-      "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "4",
-    category: "fruits",
-    name: "Avocado",
-    unit: "1 pc",
-    price: "$1.89",
-    barcode: "200000000004",
-    details: "Creamy Hass avocado, ready to eat.",
-    imageUri:
-      "https://images.unsplash.com/photo-1519162808019-7de1683fa2ad?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "5",
-    category: "vegetables",
-    name: "Spinach",
-    unit: "300 g",
-    price: "$2.15",
-    barcode: "200000000005",
-    details: "Tender baby spinach leaves.",
-    imageUri:
-      "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "6",
-    category: "vegetables",
-    name: "Tomatoes",
-    unit: "1 kg",
-    price: "$3.10",
-    barcode: "200000000006",
-    details: "Juicy red tomatoes for salads and cooking.",
-    imageUri:
-      "https://images.unsplash.com/photo-1546094096-0df4bcaaa337?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "7",
-    category: "dairy",
-    name: "Whole Milk",
-    unit: "1 L",
-    price: "$2.99",
-    barcode: "200000000007",
-    details: "Pasteurized whole milk, 3.5% fat.",
-    imageUri:
-      "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "8",
-    category: "dairy",
-    name: "Greek Yogurt",
-    unit: "400 g",
-    price: "$4.20",
-    barcode: "200000000008",
-    details: "High-protein plain Greek yogurt.",
-    imageUri:
-      "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "9",
-    category: "bakery",
-    name: "Sourdough Bread",
-    unit: "1 loaf",
-    price: "$5.40",
-    barcode: "200000000009",
-    details: "Artisan sourdough loaf baked daily.",
-    imageUri:
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "10",
-    category: "bakery",
-    name: "Croissant",
-    unit: "4 pack",
-    price: "$4.75",
-    barcode: "200000000010",
-    details: "Buttery flaky croissants, pack of four.",
-    imageUri:
-      "https://images.unsplash.com/photo-1555507036-ab794f4afe5a?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "11",
-    category: "snacks",
-    name: "Mixed Nuts",
-    unit: "250 g",
-    price: "$6.30",
-    barcode: "200000000011",
-    details: "Roasted mixed nuts with no added sugar.",
-    imageUri:
-      "https://images.unsplash.com/photo-1599599810694-57a0d6f9b8de?auto=format&fit=crop&w=500&q=60",
-  },
-  {
-    id: "12",
-    category: "snacks",
-    name: "Potato Chips",
-    unit: "150 g",
-    price: "$2.80",
-    barcode: "200000000012",
-    details: "Sea-salt potato chips, crispy texture.",
-    imageUri:
-      "https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=500&q=60",
-  },
-];
-
-function parsePrice(price: string) {
-  return Number(price.replace("$", ""));
-}
-
 function formatCurrency(amount: number) {
   return `$${amount.toFixed(2)}`;
+}
+
+function productMatchesSearch(product: CatalogProduct, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const s = product.source;
+  const tags = (s.dietaryTags ?? []).join(" ").toLowerCase();
+  const ingredients = (s.ingredients ?? []).join(" ").toLowerCase();
+  const haystack = [
+    product.name,
+    s.brand,
+    s.description,
+    s.category,
+    tags,
+    ingredients,
+    product.barcode,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
 }
 
 export default function HomeScreen() {
@@ -193,21 +74,61 @@ export default function HomeScreen() {
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerFeedback, setScannerFeedback] = useState<string>("");
-  const [lastScannedProduct, setLastScannedProduct] = useState<Product | null>(
-    null,
-  );
+  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsRefreshing, setProductsRefreshing] = useState(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
+
+  const loadProducts = useCallback(async (mode: "initial" | "refresh" = "initial") => {
+    if (mode === "initial") {
+      setProductsLoading(true);
+    } else {
+      setProductsRefreshing(true);
+    }
+    setProductsError(null);
+    try {
+      const rows = await fetchProducts();
+      setProducts(rows.map(mapProductDtoToCatalog));
+    } catch (e) {
+      setProductsError(getApiErrorMessage(e, "Could not load products"));
+    } finally {
+      setProductsLoading(false);
+      setProductsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProducts("initial");
+  }, [loadProducts]);
+
+  const onRefreshProducts = useCallback(() => {
+    loadProducts("refresh");
+  }, [loadProducts]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      const matchesCategory =
-        selectedCategoryId === "all" || product.category === selectedCategoryId;
-      const matchesSearch = product.name
-        .toLowerCase()
-        .includes(searchQuery.trim().toLowerCase());
-
+      const matchesCategory = productMatchesCategoryTab(
+        selectedCategoryId,
+        product.source,
+      );
+      const matchesSearch = productMatchesSearch(product, searchQuery);
       return matchesCategory && matchesSearch;
     });
-  }, [searchQuery, selectedCategoryId]);
+  }, [products, searchQuery, selectedCategoryId]);
+
+  const cartProducts = useMemo(
+    () => products.filter((product) => (cartItems[product.id] ?? 0) > 0),
+    [cartItems, products],
+  );
+
+  const cartSubtotal = useMemo(
+    () =>
+      cartProducts.reduce((sum, product) => {
+        const quantity = cartItems[product.id] ?? 0;
+        return sum + product.priceValue * quantity;
+      }, 0),
+    [cartItems, cartProducts],
+  );
 
   const cartCount = useMemo(
     () => Object.values(cartItems).reduce((sum, quantity) => sum + quantity, 0),
@@ -283,40 +204,46 @@ export default function HomeScreen() {
     }
 
     setScannerBusy(true);
-    const scannedCode = scanResult.data?.trim();
-    const scannedProduct = products.find(
-      (product) => product.barcode === scannedCode,
-    );
+    const scannedCode = scanResult.data?.trim() ?? "";
 
-    if (scannedProduct) {
-      handleAddToCart(scannedProduct.id);
-      setLastScannedProduct(scannedProduct);
-      setScannerFeedback(`Scanned ${scannedProduct.name}. Added to cart.`);
-    } else {
-      setScannerFeedback(
-        `No product mapped for barcode: ${scannedCode ?? "Unknown"}`,
-      );
+    const finish = () => {
+      setTimeout(() => {
+        setIsScannerVisible(false);
+        setScannerBusy(false);
+      }, 700);
+    };
+
+    if (!scannedCode) {
+      setScannerFeedback("Invalid barcode.");
+      finish();
+      return;
     }
 
-    setTimeout(() => {
-      setIsScannerVisible(false);
-      setScannerBusy(false);
-    }, 700);
+    void (async () => {
+      try {
+        const dto = await fetchProductByBarcode(scannedCode);
+        const item = mapProductDtoToCatalog(dto);
+        // Batch so the product exists in `products` in the same render as cart qty
+        unstable_batchedUpdates(() => {
+          setProducts((prev) => {
+            if (prev.some((p) => p.id === item.id)) return prev;
+            return [item, ...prev];
+          });
+          setCartItems((current) => ({
+            ...current,
+            [item.id]: (current[item.id] ?? 0) + 1,
+          }));
+        });
+        setScannerFeedback(`Added ${item.name} to cart.`);
+      } catch {
+        setScannerFeedback(
+          `No product for barcode: ${scannedCode || "Unknown"}`,
+        );
+      } finally {
+        finish();
+      }
+    })();
   }
-
-  const cartProducts = useMemo(
-    () => products.filter((product) => (cartItems[product.id] ?? 0) > 0),
-    [cartItems],
-  );
-
-  const cartSubtotal = useMemo(
-    () =>
-      cartProducts.reduce((sum, product) => {
-        const quantity = cartItems[product.id] ?? 0;
-        return sum + parsePrice(product.price) * quantity;
-      }, 0),
-    [cartItems, cartProducts],
-  );
 
   return (
     <View style={[styles.screen, { backgroundColor: palette.background }]}>
@@ -330,23 +257,25 @@ export default function HomeScreen() {
         onCartPress={() => setIsCartVisible(true)}
       />
 
-      {lastScannedProduct ? (
+      {productsError ? (
         <View
-          style={[styles.scannedInfoCard, { backgroundColor: palette.surface }]}
+          style={[
+            styles.errorBanner,
+            {
+              backgroundColor: palette.surface,
+              borderColor: palette.border,
+            },
+          ]}
         >
-          <Text style={[styles.scannedTitle, { color: palette.primary }]}>
-            Last scanned
+          <Text style={[styles.errorBannerText, { color: palette.danger }]}>
+            {productsError}
           </Text>
-          <Text style={[styles.scannedName, { color: palette.text }]}>
-            {lastScannedProduct.name}
-          </Text>
-          <Text style={[styles.scannedDetail, { color: palette.mutedText }]}>
-            {lastScannedProduct.details}
-          </Text>
-          <Text style={[styles.scannedMeta, { color: palette.mutedText }]}>
-            {lastScannedProduct.unit} • {lastScannedProduct.price} • Barcode{" "}
-            {lastScannedProduct.barcode}
-          </Text>
+          <Pressable
+            onPress={() => loadProducts("initial")}
+            style={[styles.retryButton, { backgroundColor: palette.primary }]}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -369,7 +298,7 @@ export default function HomeScreen() {
             name={item.name}
             unit={item.unit}
             price={item.price}
-            imageUri={item.imageUri}
+            imageUris={item.imageCandidates}
             onAddPress={() => handleAddToCart(item.id)}
           />
         )}
@@ -377,6 +306,41 @@ export default function HomeScreen() {
         columnWrapperStyle={styles.productRow}
         contentContainerStyle={styles.productsContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={productsRefreshing}
+            onRefresh={onRefreshProducts}
+            tintColor={palette.primary}
+          />
+        }
+        ListEmptyComponent={
+          productsLoading ? (
+            <View style={styles.listEmpty}>
+              <ActivityIndicator size="large" color={palette.primary} />
+              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
+                Loading products…
+              </Text>
+            </View>
+          ) : productsError ? (
+            <View style={styles.listEmpty}>
+              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
+                Pull to refresh or tap Retry above.
+              </Text>
+            </View>
+          ) : products.length === 0 ? (
+            <View style={styles.listEmpty}>
+              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
+                No products in the catalog yet.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.listEmpty}>
+              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
+                No products match this category or search.
+              </Text>
+            </View>
+          )
+        }
       />
 
       <Modal
@@ -482,7 +446,7 @@ export default function HomeScreen() {
               <>
                 {cartProducts.map((product) => {
                   const quantity = cartItems[product.id] ?? 0;
-                  const itemTotal = parsePrice(product.price) * quantity;
+                  const itemTotal = product.priceValue * quantity;
 
                   return (
                     <View
@@ -636,32 +600,45 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  scannedInfoCard: {
-    marginHorizontal: 16,
-    marginTop: 6,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  scannedTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  scannedName: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  scannedDetail: {
-    marginTop: 2,
-    fontSize: 13,
-  },
-  scannedMeta: {
-    marginTop: 4,
-    fontSize: 12,
-  },
   categoriesSection: {
     paddingVertical: 12,
+  },
+  errorBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  retryButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  listEmpty: {
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  listEmptyText: {
+    marginTop: 12,
+    fontSize: 15,
+    textAlign: "center",
   },
   productsContent: {
     paddingHorizontal: 16,
@@ -671,7 +648,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   productRow: {
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    gap: 12,
+    marginBottom: 0,
   },
   scannerScreen: {
     flex: 1,

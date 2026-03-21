@@ -7,6 +7,8 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
+import { AuthProvider } from "@/context/AuthContext";
+import { AccessibilitySettingsProvider } from "@/hooks/use-accessibility-settings";
 import { AppThemeProvider, useAppTheme } from "@/hooks/use-app-theme";
 
 export const unstable_settings = {
@@ -15,9 +17,13 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   return (
-    <AppThemeProvider>
-      <RootNavigator />
-    </AppThemeProvider>
+    <AccessibilitySettingsProvider>
+      <AppThemeProvider>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </AppThemeProvider>
+    </AccessibilitySettingsProvider>
   );
 }
 
@@ -29,6 +35,7 @@ function RootNavigator() {
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="paypal-payment"
