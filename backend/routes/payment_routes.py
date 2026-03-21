@@ -46,6 +46,17 @@ def _load_owned_invoice(invoice_id, user_id):
     return invoice, None
 
 
+def _get_webhook_order_id(resource):
+    if not isinstance(resource, dict):
+        return None
+
+    supplementary = resource.get("supplementary_data") or {}
+    related_ids = supplementary.get("related_ids") or {}
+
+    # Capture-completed events usually carry the PayPal order id here.
+    return related_ids.get("order_id") or resource.get("id")
+
+
 def _send_algolia_purchase_event(invoice, user_id):
     product_object_ids = [str(item.product_id) for item in invoice.invoice_items if item.product_id is not None]
     if not product_object_ids:
