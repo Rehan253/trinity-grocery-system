@@ -202,6 +202,15 @@ export default function LoginScreen() {
                 <ThemedText style={styles.loginButtonText}>Login</ThemedText>
               )}
             </Pressable>
+
+            <Pressable
+              onPress={() => router.push("/register")}
+              style={styles.registerLink}
+            >
+              <ThemedText style={[styles.registerLinkText, { color: palette.secondary }]}>
+                New here? Create an account
+              </ThemedText>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -324,6 +333,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
     marginBottom: 4,
+  },
+  registerLink: {
+    marginTop: 18,
+    alignItems: "center",
+  },
+  registerLinkText: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   footer: {
     marginTop: 20,

@@ -25,16 +25,28 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+type ErrorBody = {
+  message?: string;
+  msg?: string;
+  errors?: Record<string, string>;
+};
+
 export function getApiErrorMessage(
   error: unknown,
   fallback = "Something went wrong",
 ): string {
   if (axios.isAxiosError(error)) {
-    const ax = error as AxiosError<{ message?: string; msg?: string }>;
+    const ax = error as AxiosError<ErrorBody>;
     const data = ax.response?.data;
     if (data && typeof data === "object") {
       if (typeof data.message === "string") return data.message;
       if (typeof data.msg === "string") return data.msg;
+      if (data.errors && typeof data.errors === "object") {
+        const parts = Object.values(data.errors).filter(
+          (v): v is string => typeof v === "string",
+        );
+        if (parts.length > 0) return parts.join(" ");
+      }
     }
     if (ax.message) return ax.message;
   }

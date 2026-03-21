@@ -17,6 +17,30 @@ export type LoginResponse = {
   user: AuthUser;
 };
 
+/** POST /auth/register body (matches Flask `auth_routes.register`). */
+export type RegisterPayload = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  phone_number: string;
+  address: string;
+  zip_code: string;
+  city: string;
+  country: string;
+  state?: string;
+  role?: "customer" | "admin";
+};
+
+export type RegisterResponse = {
+  message: string;
+  user: {
+    id: number;
+    email: string;
+    role: string;
+  };
+};
+
 /** Backend `serialize_product` shape (subset used by the app). */
 export type ProductDto = {
   id: number;
