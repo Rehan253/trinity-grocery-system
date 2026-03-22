@@ -1,25 +1,155 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/hooks/use-app-theme";
+import { getApiErrorMessage } from "@/lib/api/client";
+import { capturePayPalOrder, createPayPalOrder } from "@/lib/api/payments";
+import { CLEAR_CART_AFTER_CHECKOUT_KEY } from "@/lib/storage/checkoutFlags";
+
+function getQueryParam(
+  params: Linking.QueryParams | null | undefined,
+  key: string,
+): string | undefined {
+  const v = params?.[key];
+  if (Array.isArray(v)) return v[0];
+  if (typeof v === "string") return v;
+  return undefined;
+}
 
 export default function PaypalPaymentScreen() {
   const router = useRouter();
   const { palette } = useAppTheme();
-  const params = useLocalSearchParams<{ amount?: string; items?: string }>();
+  const params = useLocalSearchParams<{
+    amount?: string;
+    items?: string;
+    invoiceId?: string;
+  }>();
+
   const [isPaid, setIsPaid] = useState(false);
+  const [payBusy, setPayBusy] = useState(false);
 
   const amount = params.amount ?? "0.00";
   const items = params.items ?? "0";
+  const invoiceIdRaw = params.invoiceId ?? "";
+  const invoiceIdNum = Number(invoiceIdRaw);
+  const hasValidInvoice =
+    invoiceIdRaw.length > 0 && Number.isFinite(invoiceIdNum) && invoiceIdNum > 0;
+
+  useEffect(() => {
+    WebBrowser.maybeCompleteAuthSession();
+  }, []);
+
+  const completeSuccess = useCallback(async () => {
+    setIsPaid(true);
+    try {
+      await AsyncStorage.setItem(CLEAR_CART_AFTER_CHECKOUT_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const runPayPalFlow = useCallback(async () => {
+    if (!hasValidInvoice) {
+      Alert.alert(
+        "Missing order",
+        "No invoice was found. Go back and try checkout again.",
+      );
+      return;
+    }
+
+    setPayBusy(true);
+    try {
+      const redirectUrl = Linking.createURL("/paypal-payment");
+      const created = await createPayPalOrder({
+        invoice_id: invoiceIdNum,
+        return_url: redirectUrl,
+        cancel_url: redirectUrl,
+      });
+
+      const orderId = created.order_id;
+      const approveUrl = created.approve_url ?? "";
+
+      if (approveUrl.includes("mock-paypal.local")) {
+        await capturePayPalOrder(invoiceIdNum, orderId);
+        await completeSuccess();
+        return;
+      }
+
+      if (!approveUrl) {
+        Alert.alert(
+          "PayPal",
+          "No approval URL was returned. Check PayPal credentials and backend logs.",
+        );
+        return;
+      }
+
+      const session = await WebBrowser.openAuthSessionAsync(
+        approveUrl,
+        redirectUrl,
+      );
+
+      if (session.type === "cancel") {
+        return;
+      }
+
+      if (session.type !== "success" || !session.url) {
+        Alert.alert("PayPal", "Could not complete the PayPal session.");
+        return;
+      }
+
+      const parsed = Linking.parse(session.url);
+      const token = getQueryParam(parsed.queryParams, "token");
+
+      if (!token) {
+        Alert.alert(
+          "Payment",
+          "PayPal did not return a payment token. You can cancel or try again.",
+        );
+        return;
+      }
+
+      await capturePayPalOrder(invoiceIdNum, token);
+      await completeSuccess();
+    } catch (e) {
+      Alert.alert("PayPal", getApiErrorMessage(e, "Payment failed."));
+    } finally {
+      setPayBusy(false);
+    }
+  }, [completeSuccess, hasValidInvoice, invoiceIdNum]);
+
+  function handleBack() {
+    if (isPaid) {
+      router.replace("/(tabs)");
+      return;
+    }
+    router.back();
+  }
 
   return (
     <SafeAreaView
       style={[styles.screen, { backgroundColor: palette.background }]}
     >
-      <View style={[styles.card, { backgroundColor: palette.surface }]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator
+      >
+        <View style={[styles.card, { backgroundColor: palette.surface }]}>
         <View style={styles.logoRow}>
           <View style={styles.paypalBadge}>
             <Text style={styles.paypalBadgeText}>PayPal</Text>
@@ -33,6 +163,12 @@ export default function PaypalPaymentScreen() {
           Secure checkout for your grocery order.
         </Text>
 
+        {!hasValidInvoice ? (
+          <Text style={[styles.warnText, { color: palette.danger }]}>
+            Invalid or missing invoice. Use Proceed to Checkout from the cart.
+          </Text>
+        ) : null}
+
         <View
           style={[
             styles.summaryCard,
@@ -42,6 +178,14 @@ export default function PaypalPaymentScreen() {
             },
           ]}
         >
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: palette.mutedText }]}>
+              Invoice
+            </Text>
+            <Text style={[styles.summaryValue, { color: palette.text }]}>
+              #{invoiceIdRaw}
+            </Text>
+          </View>
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: palette.mutedText }]}>
               Items
@@ -94,22 +238,34 @@ export default function PaypalPaymentScreen() {
           </View>
         ) : (
           <Pressable
-            style={[styles.payButton, { backgroundColor: palette.primary }]}
-            onPress={() => setIsPaid(true)}
+            disabled={payBusy || !hasValidInvoice}
+            style={[
+              styles.payButton,
+              {
+                backgroundColor: palette.primary,
+                opacity: payBusy || !hasValidInvoice ? 0.65 : 1,
+              },
+            ]}
+            onPress={() => void runPayPalFlow()}
           >
-            <Text style={styles.payButtonText}>Pay ${amount} with PayPal</Text>
+            {payBusy ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.payButtonText}>Pay ${amount} with PayPal</Text>
+            )}
           </Pressable>
         )}
 
         <Pressable
           style={[styles.backButton, { borderColor: palette.border }]}
-          onPress={() => router.back()}
+          onPress={handleBack}
         >
           <Text style={[styles.backButtonText, { color: palette.text }]}>
             {isPaid ? "Back to Store" : "Cancel"}
           </Text>
         </Pressable>
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -117,7 +273,15 @@ export default function PaypalPaymentScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    padding: 16,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 28,
     justifyContent: "center",
   },
   card: {
@@ -148,6 +312,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
     lineHeight: 20,
+  },
+  warnText: {
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: "600",
   },
   summaryCard: {
     marginTop: 18,

@@ -30,6 +30,16 @@ The app talks to the repo’s Flask backend over HTTP.
 
 Client code lives under `Mobile-app/lib/api/` (Axios instance + `auth` / `products` modules). Session token is stored with AsyncStorage; see `Mobile-app/context/AuthContext.tsx`.
 
+### Checkout & PayPal
+
+1. **Profile**: Delivery fields (name, address, city, ZIP) must be filled on the user account used at checkout.
+2. **Cart → Proceed to Checkout** creates an invoice and line items on the backend, then opens **PayPal Payment**.
+3. **Pay** calls `POST /payments/paypal/create-order`, then either:
+   - **Sandbox / live**: opens the PayPal approval page via `expo-web-browser` and returns to the app using the `groceryapp` URL scheme (`Linking.createURL("/paypal-payment")` must match the backend `return_url` / `cancel_url`).
+   - **Backend mock** (`PAYPAL_MOCK_MODE`): skips the browser and captures immediately (fake `approve_url` is not a real page).
+
+After a successful capture, the cart is cleared when you return to the Home tab.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

@@ -3,16 +3,21 @@ import {
   useCameraPermissions,
   type BarcodeScanningResult,
 } from "expo-camera";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   unstable_batchedUpdates,
 } from "react-native";
@@ -20,9 +25,12 @@ import {
 import { CategoryScroll } from "@/components/category-scroll";
 import { Header } from "@/components/header";
 import { ProductCard } from "@/components/product-card";
+import { useAuth } from "@/context/AuthContext";
 import { useAppTheme } from "@/hooks/use-app-theme";
-import { fetchProductByBarcode, fetchProducts } from "@/lib/api/products";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { addInvoiceItem, createInvoice } from "@/lib/api/invoices";
+import { fetchProductByBarcode, fetchProducts } from "@/lib/api/products";
+import { CLEAR_CART_AFTER_CHECKOUT_KEY } from "@/lib/storage/checkoutFlags";
 import { productMatchesCategoryTab } from "@/lib/utils/categoryMapping";
 import {
   mapProductDtoToCatalog,
@@ -65,7 +73,10 @@ function productMatchesSearch(product: CatalogProduct, query: string) {
 
 export default function HomeScreen() {
   const { isDark, palette, toggleTheme } = useAppTheme();
+  const { height: windowHeight } = useWindowDimensions();
   const router = useRouter();
+  const { user } = useAuth();
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -101,6 +112,22 @@ export default function HomeScreen() {
     loadProducts("initial");
   }, [loadProducts]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void (async () => {
+        try {
+          const v = await AsyncStorage.getItem(CLEAR_CART_AFTER_CHECKOUT_KEY);
+          if (v === "1") {
+            setCartItems({});
+            await AsyncStorage.removeItem(CLEAR_CART_AFTER_CHECKOUT_KEY);
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    }, []),
+  );
+
   const onRefreshProducts = useCallback(() => {
     loadProducts("refresh");
   }, [loadProducts]);
@@ -133,6 +160,15 @@ export default function HomeScreen() {
   const cartCount = useMemo(
     () => Object.values(cartItems).reduce((sum, quantity) => sum + quantity, 0),
     [cartItems],
+  );
+
+  const cartModalMaxHeight = windowHeight * 0.88;
+  /** Title row + margins; footer = subtotal + PayPal row + checkout (fixed, not scrolled). */
+  const cartModalHeaderReserve = 68;
+  const cartModalFooterReserve = 288;
+  const cartItemsScrollMaxHeight = Math.max(
+    120,
+    cartModalMaxHeight - cartModalHeaderReserve - cartModalFooterReserve,
   );
 
   function handleAddToCart(productId: string) {
@@ -169,19 +205,74 @@ export default function HomeScreen() {
     setCartItems({});
   }
 
-  function handleProceedCheckout() {
-    if (cartProducts.length === 0) {
+  async function handleProceedCheckout() {
+    if (cartProducts.length === 0 || checkoutBusy) {
       return;
     }
 
-    setIsCartVisible(false);
-    router.push({
-      pathname: "/paypal-payment",
-      params: {
-        amount: cartSubtotal.toFixed(2),
-        items: String(cartCount),
-      },
-    });
+    if (!user) {
+      Alert.alert("Sign in required", "Please log in to checkout.");
+      router.push("/login");
+      return;
+    }
+
+    const firstName = (user.first_name ?? "").trim();
+    const lastName = (user.last_name ?? "").trim();
+    const address = (user.address ?? "").trim();
+    const zipCode = (user.zip_code ?? "").trim();
+    const city = (user.city ?? "").trim();
+
+    if (!firstName || !lastName || !address || !zipCode || !city) {
+      Alert.alert(
+        "Delivery details missing",
+        "Add your name, address, city, and ZIP in Profile before checkout.",
+        [{ text: "OK", onPress: () => router.push("/(tabs)/profile") }],
+      );
+      return;
+    }
+
+    setCheckoutBusy(true);
+    try {
+      const inv = await createInvoice({
+        paymentMethod: "paypal",
+        deliveryAddress: {
+          firstName,
+          lastName,
+          email: user.email,
+          phone: user.phone_number?.trim() || undefined,
+          address,
+          zipCode,
+          city,
+          state: user.state?.trim() || undefined,
+        },
+      });
+
+      for (const product of cartProducts) {
+        const quantity = cartItems[product.id] ?? 0;
+        const productId = Number(product.id);
+        if (!Number.isFinite(productId) || quantity <= 0) {
+          continue;
+        }
+        await addInvoiceItem(inv.invoice_id, productId, quantity);
+      }
+
+      setIsCartVisible(false);
+      router.push({
+        pathname: "/paypal-payment",
+        params: {
+          invoiceId: String(inv.invoice_id),
+          amount: cartSubtotal.toFixed(2),
+          items: String(cartCount),
+        },
+      });
+    } catch (e) {
+      Alert.alert(
+        "Checkout",
+        getApiErrorMessage(e, "Could not create your order."),
+      );
+    } finally {
+      setCheckoutBusy(false);
+    }
   }
 
   async function handleOpenScanner() {
@@ -414,7 +505,13 @@ export default function HomeScreen() {
           style={[styles.modalBackdrop, { backgroundColor: palette.overlay }]}
         >
           <View
-            style={[styles.modalCard, { backgroundColor: palette.surface }]}
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: palette.surface,
+                maxHeight: cartModalMaxHeight,
+              },
+            ]}
           >
             <View style={styles.modalHeaderRow}>
               <Text style={[styles.modalTitle, { color: palette.text }]}>
@@ -443,151 +540,181 @@ export default function HomeScreen() {
                 Your cart is empty.
               </Text>
             ) : (
-              <>
-                {cartProducts.map((product) => {
-                  const quantity = cartItems[product.id] ?? 0;
-                  const itemTotal = product.priceValue * quantity;
+              <View style={styles.cartModalColumn}>
+                <ScrollView
+                  style={{ maxHeight: cartItemsScrollMaxHeight }}
+                  contentContainerStyle={styles.cartItemsScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator
+                >
+                  {cartProducts.map((product) => {
+                    const quantity = cartItems[product.id] ?? 0;
+                    const itemTotal = product.priceValue * quantity;
 
-                  return (
-                    <View
-                      key={product.id}
-                      style={[
-                        styles.cartRow,
-                        { borderBottomColor: palette.border },
-                      ]}
-                    >
-                      <View style={styles.cartInfoColumn}>
-                        <Text
-                          style={[styles.cartItemName, { color: palette.text }]}
-                        >
-                          {product.name}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.cartItemPrice,
-                            { color: palette.mutedText },
-                          ]}
-                        >
-                          {product.price} each
-                        </Text>
-                        <Pressable
-                          onPress={() => handleRemoveFromCart(product.id)}
-                        >
+                    return (
+                      <View
+                        key={product.id}
+                        style={[
+                          styles.cartRow,
+                          { borderBottomColor: palette.border },
+                        ]}
+                      >
+                        <View style={styles.cartInfoColumn}>
                           <Text
                             style={[
-                              styles.removeText,
-                              { color: palette.danger },
+                              styles.cartItemName,
+                              { color: palette.text },
                             ]}
                           >
-                            Remove
+                            {product.name}
                           </Text>
-                        </Pressable>
-                      </View>
-
-                      <View style={styles.cartControlsColumn}>
-                        <View style={styles.qtyControlRow}>
-                          <Pressable
-                            onPress={() => handleDecreaseFromCart(product.id)}
-                            style={[
-                              styles.qtyButton,
-                              { backgroundColor: palette.primary },
-                            ]}
-                          >
-                            <Text style={styles.qtyButtonText}>-</Text>
-                          </Pressable>
                           <Text
                             style={[
-                              styles.cartItemQty,
-                              { color: palette.primary },
+                              styles.cartItemPrice,
+                              { color: palette.mutedText },
                             ]}
                           >
-                            {quantity}
+                            {product.price} each
                           </Text>
                           <Pressable
-                            onPress={() => handleAddToCart(product.id)}
-                            style={[
-                              styles.qtyButton,
-                              { backgroundColor: palette.primary },
-                            ]}
+                            onPress={() => handleRemoveFromCart(product.id)}
                           >
-                            <Text style={styles.qtyButtonText}>+</Text>
+                            <Text
+                              style={[
+                                styles.removeText,
+                                { color: palette.danger },
+                              ]}
+                            >
+                              Remove
+                            </Text>
                           </Pressable>
                         </View>
-                        <Text
-                          style={[
-                            styles.itemTotalText,
-                            { color: palette.text },
-                          ]}
-                        >
-                          {formatCurrency(itemTotal)}
-                        </Text>
+
+                        <View style={styles.cartControlsColumn}>
+                          <View style={styles.qtyControlRow}>
+                            <Pressable
+                              onPress={() =>
+                                handleDecreaseFromCart(product.id)
+                              }
+                              style={[
+                                styles.qtyButton,
+                                { backgroundColor: palette.primary },
+                              ]}
+                            >
+                              <Text style={styles.qtyButtonText}>-</Text>
+                            </Pressable>
+                            <Text
+                              style={[
+                                styles.cartItemQty,
+                                { color: palette.primary },
+                              ]}
+                            >
+                              {quantity}
+                            </Text>
+                            <Pressable
+                              onPress={() => handleAddToCart(product.id)}
+                              style={[
+                                styles.qtyButton,
+                                { backgroundColor: palette.primary },
+                              ]}
+                            >
+                              <Text style={styles.qtyButtonText}>+</Text>
+                            </Pressable>
+                          </View>
+                          <Text
+                            style={[
+                              styles.itemTotalText,
+                              { color: palette.text },
+                            ]}
+                          >
+                            {formatCurrency(itemTotal)}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </ScrollView>
 
-                <View
-                  style={[styles.totalRow, { borderTopColor: palette.border }]}
-                >
-                  <Text style={[styles.totalLabel, { color: palette.text }]}>
-                    Subtotal
-                  </Text>
-                  <Text style={[styles.totalValue, { color: palette.primary }]}>
-                    {formatCurrency(cartSubtotal)}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.paymentCard,
-                    {
-                      backgroundColor: palette.background,
-                      borderColor: palette.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.paymentHeader}>
-                    <Text
-                      style={[
-                        styles.paymentLabel,
-                        { color: palette.mutedText },
-                      ]}
-                    >
-                      Payment Method
+                <View style={styles.cartModalFooter}>
+                  <View
+                    style={[
+                      styles.totalRow,
+                      { borderTopColor: palette.border },
+                    ]}
+                  >
+                    <Text style={[styles.totalLabel, { color: palette.text }]}>
+                      Subtotal
                     </Text>
                     <Text
-                      style={[styles.paymentChange, { color: palette.primary }]}
+                      style={[styles.totalValue, { color: palette.primary }]}
                     >
-                      Selected
+                      {formatCurrency(cartSubtotal)}
                     </Text>
                   </View>
-                  <View style={styles.paymentMethodRow}>
-                    <View style={styles.paypalBadge}>
-                      <Text style={styles.paypalBadgeText}>PayPal</Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.paymentMethodText,
-                        { color: palette.text },
-                      ]}
-                    >
-                      Pay with PayPal
-                    </Text>
-                  </View>
-                </View>
 
-                <Pressable
-                  onPress={handleProceedCheckout}
-                  style={[
-                    styles.checkoutButton,
-                    { backgroundColor: palette.primary },
-                  ]}
-                >
-                  <Text style={styles.checkoutButtonText}>
-                    Proceed to Checkout
-                  </Text>
-                </Pressable>
-              </>
+                  <View
+                    style={[
+                      styles.paymentCard,
+                      {
+                        backgroundColor: palette.background,
+                        borderColor: palette.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.paymentHeader}>
+                      <Text
+                        style={[
+                          styles.paymentLabel,
+                          { color: palette.mutedText },
+                        ]}
+                      >
+                        Payment Method
+                      </Text>
+                      <Text
+                        style={[
+                          styles.paymentChange,
+                          { color: palette.primary },
+                        ]}
+                      >
+                        Selected
+                      </Text>
+                    </View>
+                    <View style={styles.paymentMethodRow}>
+                      <View style={styles.paypalBadge}>
+                        <Text style={styles.paypalBadgeText}>PayPal</Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.paymentMethodText,
+                          { color: palette.text },
+                        ]}
+                      >
+                        Pay with PayPal
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Pressable
+                    disabled={checkoutBusy}
+                    onPress={() => void handleProceedCheckout()}
+                    style={[
+                      styles.checkoutButton,
+                      {
+                        backgroundColor: palette.primary,
+                        opacity: checkoutBusy ? 0.7 : 1,
+                      },
+                    ]}
+                  >
+                    {checkoutBusy ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.checkoutButtonText}>
+                        Proceed to Checkout
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
             )}
           </View>
         </View>
@@ -705,7 +832,18 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     padding: 16,
     paddingBottom: 28,
-    maxHeight: "60%",
+  },
+  cartModalColumn: {
+    flexShrink: 1,
+  },
+  cartItemsScrollContent: {
+    paddingBottom: 8,
+    /** Gutter so the vertical scroll thumb sits right of the qty + / − controls (LTR). */
+    paddingEnd: 18,
+  },
+  cartModalFooter: {
+    flexShrink: 0,
+    paddingTop: 8,
   },
   modalHeaderRow: {
     flexDirection: "row",
