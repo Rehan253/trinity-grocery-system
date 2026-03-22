@@ -90,23 +90,26 @@ export default function HomeScreen() {
   const [productsRefreshing, setProductsRefreshing] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
 
-  const loadProducts = useCallback(async (mode: "initial" | "refresh" = "initial") => {
-    if (mode === "initial") {
-      setProductsLoading(true);
-    } else {
-      setProductsRefreshing(true);
-    }
-    setProductsError(null);
-    try {
-      const rows = await fetchProducts();
-      setProducts(rows.map(mapProductDtoToCatalog));
-    } catch (e) {
-      setProductsError(getApiErrorMessage(e, "Could not load products"));
-    } finally {
-      setProductsLoading(false);
-      setProductsRefreshing(false);
-    }
-  }, []);
+  const loadProducts = useCallback(
+    async (mode: "initial" | "refresh" = "initial") => {
+      if (mode === "initial") {
+        setProductsLoading(true);
+      } else {
+        setProductsRefreshing(true);
+      }
+      setProductsError(null);
+      try {
+        const rows = await fetchProducts();
+        setProducts(rows.map(mapProductDtoToCatalog));
+      } catch (e) {
+        setProductsError(getApiErrorMessage(e, "Could not load products"));
+      } finally {
+        setProductsLoading(false);
+        setProductsRefreshing(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     loadProducts("initial");
@@ -210,69 +213,15 @@ export default function HomeScreen() {
       return;
     }
 
-    if (!user) {
-      Alert.alert("Sign in required", "Please log in to checkout.");
-      router.push("/login");
-      return;
-    }
-
-    const firstName = (user.first_name ?? "").trim();
-    const lastName = (user.last_name ?? "").trim();
-    const address = (user.address ?? "").trim();
-    const zipCode = (user.zip_code ?? "").trim();
-    const city = (user.city ?? "").trim();
-
-    if (!firstName || !lastName || !address || !zipCode || !city) {
-      Alert.alert(
-        "Delivery details missing",
-        "Add your name, address, city, and ZIP in Profile before checkout.",
-        [{ text: "OK", onPress: () => router.push("/(tabs)/profile") }],
-      );
-      return;
-    }
-
-    setCheckoutBusy(true);
-    try {
-      const inv = await createInvoice({
-        paymentMethod: "paypal",
-        deliveryAddress: {
-          firstName,
-          lastName,
-          email: user.email,
-          phone: user.phone_number?.trim() || undefined,
-          address,
-          zipCode,
-          city,
-          state: user.state?.trim() || undefined,
-        },
-      });
-
-      for (const product of cartProducts) {
-        const quantity = cartItems[product.id] ?? 0;
-        const productId = Number(product.id);
-        if (!Number.isFinite(productId) || quantity <= 0) {
-          continue;
-        }
-        await addInvoiceItem(inv.invoice_id, productId, quantity);
-      }
-
-      setIsCartVisible(false);
-      router.push({
-        pathname: "/paypal-payment",
-        params: {
-          invoiceId: String(inv.invoice_id),
-          amount: cartSubtotal.toFixed(2),
-          items: String(cartCount),
-        },
-      });
-    } catch (e) {
-      Alert.alert(
-        "Checkout",
-        getApiErrorMessage(e, "Could not create your order."),
-      );
-    } finally {
-      setCheckoutBusy(false);
-    }
+    setIsCartVisible(false);
+    router.push({
+      pathname: "/paypal-payment",
+      params: {
+        amount: cartSubtotal.toFixed(2),
+        items: String(cartCount),
+        cartData: JSON.stringify(cartItems),
+      },
+    });
   }
 
   async function handleOpenScanner() {
@@ -408,25 +357,33 @@ export default function HomeScreen() {
           productsLoading ? (
             <View style={styles.listEmpty}>
               <ActivityIndicator size="large" color={palette.primary} />
-              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
+              <Text
+                style={[styles.listEmptyText, { color: palette.mutedText }]}
+              >
                 Loading products…
               </Text>
             </View>
           ) : productsError ? (
             <View style={styles.listEmpty}>
-              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
+              <Text
+                style={[styles.listEmptyText, { color: palette.mutedText }]}
+              >
                 Pull to refresh or tap Retry above.
               </Text>
             </View>
           ) : products.length === 0 ? (
             <View style={styles.listEmpty}>
-              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
+              <Text
+                style={[styles.listEmptyText, { color: palette.mutedText }]}
+              >
                 No products in the catalog yet.
               </Text>
             </View>
           ) : (
             <View style={styles.listEmpty}>
-              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
+              <Text
+                style={[styles.listEmptyText, { color: palette.mutedText }]}
+              >
                 No products match this category or search.
               </Text>
             </View>
@@ -593,9 +550,7 @@ export default function HomeScreen() {
                         <View style={styles.cartControlsColumn}>
                           <View style={styles.qtyControlRow}>
                             <Pressable
-                              onPress={() =>
-                                handleDecreaseFromCart(product.id)
-                              }
+                              onPress={() => handleDecreaseFromCart(product.id)}
                               style={[
                                 styles.qtyButton,
                                 { backgroundColor: palette.primary },

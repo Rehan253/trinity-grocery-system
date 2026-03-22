@@ -2,7 +2,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from uuid import uuid4
 
 import requests
-from flask import current_app
+from flask import current_app, has_request_context, request
 
 
 MOCK_ORDERS = {}
@@ -31,15 +31,23 @@ def _parse_error_message(response):
         return response.text or "Unknown PayPal error"
 
     if isinstance(payload, dict):
-        message = payload.get("message")
-        if message:
-            return str(message)
         details = payload.get("details")
         if isinstance(details, list) and details:
             first = details[0] or {}
+            issue = first.get("issue")
             description = first.get("description")
+            if issue and description:
+                return f"{issue}: {description}"
+            if issue:
+                return str(issue)
             if description:
                 return str(description)
+        message = payload.get("message")
+        if message:
+            return str(message)
+        debug_id = payload.get("debug_id")
+        if debug_id:
+            return f"PayPal request failed (debug_id: {debug_id})"
     return "PayPal request failed"
 
 
@@ -71,6 +79,15 @@ def get_paypal_access_token():
     return token
 
 
+def _default_redirect_urls():
+    """Build default PayPal return/cancel URLs from the current request."""
+    if has_request_context():
+        base = request.host_url.rstrip("/")
+    else:
+        base = "http://localhost:5000"
+    return f"{base}/payments/paypal/return", f"{base}/payments/paypal/cancel"
+
+
 def create_paypal_order(amount, return_url=None, cancel_url=None):
     amount_value = _amount_to_string(amount)
     currency = current_app.config.get("PAYPAL_CURRENCY", "USD")
@@ -87,6 +104,12 @@ def create_paypal_order(amount, return_url=None, cancel_url=None):
         }
 
     access_token = get_paypal_access_token()
+
+    if not return_url or not cancel_url:
+        default_return, default_cancel = _default_redirect_urls()
+        return_url = return_url or default_return
+        cancel_url = cancel_url or default_cancel
+
     payload = {
         "intent": "CAPTURE",
         "purchase_units": [
@@ -97,15 +120,18 @@ def create_paypal_order(amount, return_url=None, cancel_url=None):
                 }
             }
         ],
+        "payment_source": {
+            "paypal": {
+                "experience_context": {
+                    "landing_page": "LOGIN",
+                    "user_action": "PAY_NOW",
+                    "shipping_preference": "NO_SHIPPING",
+                    "return_url": return_url,
+                    "cancel_url": cancel_url,
+                }
+            }
+        },
     }
-    ret = str(return_url or "").strip()
-    can = str(cancel_url or "").strip()
-    if ret and can:
-        payload["application_context"] = {
-            "return_url": ret,
-            "cancel_url": can,
-            "user_action": "PAY_NOW",
-        }
     response = requests.post(
         f"{_paypal_base_url()}/v2/checkout/orders",
         json=payload,
@@ -125,7 +151,7 @@ def create_paypal_order(amount, return_url=None, cancel_url=None):
 
     approve_url = None
     for link in data.get("links", []):
-        if link.get("rel") == "approve":
+        if link.get("rel") in {"approve", "payer-action"}:
             approve_url = link.get("href")
             break
 
@@ -179,6 +205,69 @@ def capture_paypal_order(order_id):
     if response.status_code >= 400:
         raise RuntimeError(_parse_error_message(response))
     return response.json() or {}
+
+
+def _header_value(headers, key):
+    if hasattr(headers, "get"):
+        value = headers.get(key)
+        if value:
+            return value
+
+    lowered_key = key.lower()
+    for header_key, value in dict(headers or {}).items():
+        if str(header_key).lower() == lowered_key:
+            return value
+    return None
+
+
+def verify_paypal_webhook_signature(headers, webhook_event):
+    if _is_mock_mode():
+        return True
+
+    webhook_id = current_app.config.get("PAYPAL_WEBHOOK_ID") or ""
+    if not webhook_id:
+        raise RuntimeError("PayPal webhook id is not configured")
+
+    transmission_id = _header_value(headers, "PayPal-Transmission-Id")
+    transmission_time = _header_value(headers, "PayPal-Transmission-Time")
+    cert_url = _header_value(headers, "PayPal-Cert-Url")
+    auth_algo = _header_value(headers, "PayPal-Auth-Algo")
+    transmission_sig = _header_value(headers, "PayPal-Transmission-Sig")
+
+    required_values = [
+        transmission_id,
+        transmission_time,
+        cert_url,
+        auth_algo,
+        transmission_sig,
+    ]
+    if any(not value for value in required_values):
+        raise RuntimeError("Missing PayPal webhook headers")
+
+    access_token = get_paypal_access_token()
+    payload = {
+        "auth_algo": auth_algo,
+        "cert_url": cert_url,
+        "transmission_id": transmission_id,
+        "transmission_sig": transmission_sig,
+        "transmission_time": transmission_time,
+        "webhook_id": webhook_id,
+        "webhook_event": webhook_event or {},
+    }
+    response = requests.post(
+        f"{_paypal_base_url()}/v1/notifications/verify-webhook-signature",
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
+        timeout=20,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(_parse_error_message(response))
+
+    verification_status = (response.json() or {}).get("verification_status")
+    return verification_status == "SUCCESS"
 
 
 def parse_capture_result(capture_payload):

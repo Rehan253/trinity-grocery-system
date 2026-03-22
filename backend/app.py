@@ -1,4 +1,9 @@
 import os
+from dotenv import load_dotenv
+
+# Load .env before importing modules that read environment variables at import time.
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
