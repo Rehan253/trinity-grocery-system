@@ -3,42 +3,29 @@ import {
   useCameraPermissions,
   type BarcodeScanningResult,
 } from "expo-camera";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  useWindowDimensions,
   View,
   unstable_batchedUpdates,
 } from "react-native";
-import { Image } from "expo-image";
 
 import { CategoryScroll } from "@/components/category-scroll";
 import { Header } from "@/components/header";
 import { ProductCard } from "@/components/product-card";
-import { useAuth } from "@/context/AuthContext";
 import { useAppTheme } from "@/hooks/use-app-theme";
-import { getApiErrorMessage } from "@/lib/api/client";
-import { addInvoiceItem, createInvoice } from "@/lib/api/invoices";
 import { fetchProductByBarcode, fetchProducts } from "@/lib/api/products";
-import { CLEAR_CART_AFTER_CHECKOUT_KEY } from "@/lib/storage/checkoutFlags";
+import { getApiErrorMessage } from "@/lib/api/client";
 import { productMatchesCategoryTab } from "@/lib/utils/categoryMapping";
 import {
   mapProductDtoToCatalog,
-  PRODUCT_IMAGE_PLACEHOLDER,
   type CatalogProduct,
 } from "@/lib/utils/productMapper";
 
@@ -78,10 +65,7 @@ function productMatchesSearch(product: CatalogProduct, query: string) {
 
 export default function HomeScreen() {
   const { isDark, palette, toggleTheme } = useAppTheme();
-  const { height: windowHeight } = useWindowDimensions();
   const router = useRouter();
-  const { user } = useAuth();
-  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,55 +74,32 @@ export default function HomeScreen() {
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerFeedback, setScannerFeedback] = useState<string>("");
-  const [manualBarcode, setManualBarcode] = useState("");
-  const [scannerPreviewProduct, setScannerPreviewProduct] =
-    useState<CatalogProduct | null>(null);
-  const [scannerLookupLoading, setScannerLookupLoading] = useState(false);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsRefreshing, setProductsRefreshing] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
 
-  const loadProducts = useCallback(
-    async (mode: "initial" | "refresh" = "initial") => {
-      if (mode === "initial") {
-        setProductsLoading(true);
-      } else {
-        setProductsRefreshing(true);
-      }
-      setProductsError(null);
-      try {
-        const rows = await fetchProducts();
-        setProducts(rows.map(mapProductDtoToCatalog));
-      } catch (e) {
-        setProductsError(getApiErrorMessage(e, "Could not load products"));
-      } finally {
-        setProductsLoading(false);
-        setProductsRefreshing(false);
-      }
-    },
-    [],
-  );
+  const loadProducts = useCallback(async (mode: "initial" | "refresh" = "initial") => {
+    if (mode === "initial") {
+      setProductsLoading(true);
+    } else {
+      setProductsRefreshing(true);
+    }
+    setProductsError(null);
+    try {
+      const rows = await fetchProducts();
+      setProducts(rows.map(mapProductDtoToCatalog));
+    } catch (e) {
+      setProductsError(getApiErrorMessage(e, "Could not load products"));
+    } finally {
+      setProductsLoading(false);
+      setProductsRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadProducts("initial");
   }, [loadProducts]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void (async () => {
-        try {
-          const v = await AsyncStorage.getItem(CLEAR_CART_AFTER_CHECKOUT_KEY);
-          if (v === "1") {
-            setCartItems({});
-            await AsyncStorage.removeItem(CLEAR_CART_AFTER_CHECKOUT_KEY);
-          }
-        } catch {
-          /* ignore */
-        }
-      })();
-    }, []),
-  );
 
   const onRefreshProducts = useCallback(() => {
     loadProducts("refresh");
@@ -172,15 +133,6 @@ export default function HomeScreen() {
   const cartCount = useMemo(
     () => Object.values(cartItems).reduce((sum, quantity) => sum + quantity, 0),
     [cartItems],
-  );
-
-  const cartModalMaxHeight = windowHeight * 0.88;
-  /** Title row + margins; footer = subtotal + PayPal row + checkout (fixed, not scrolled). */
-  const cartModalHeaderReserve = 68;
-  const cartModalFooterReserve = 288;
-  const cartItemsScrollMaxHeight = Math.max(
-    120,
-    cartModalMaxHeight - cartModalHeaderReserve - cartModalFooterReserve,
   );
 
   function handleAddToCart(productId: string) {
@@ -217,8 +169,8 @@ export default function HomeScreen() {
     setCartItems({});
   }
 
-  async function handleProceedCheckout() {
-    if (cartProducts.length === 0 || checkoutBusy) {
+  function handleProceedCheckout() {
+    if (cartProducts.length === 0) {
       return;
     }
 
@@ -233,102 +185,65 @@ export default function HomeScreen() {
     });
   }
 
-  function resetScannerModalState() {
-    setScannerBusy(false);
-    setScannerLookupLoading(false);
-    setScannerPreviewProduct(null);
-    setManualBarcode("");
-    setScannerFeedback("Point camera at a product barcode or enter the code below.");
-  }
-
   async function handleOpenScanner() {
     if (!cameraPermission?.granted) {
       const permissionResponse = await requestCameraPermission();
       if (!permissionResponse.granted) {
-        resetScannerModalState();
-        setScannerFeedback(
-          "Camera is off — enter a barcode below to look up a product.",
-        );
-        setIsScannerVisible(true);
+        setScannerFeedback("Camera permission is required to scan products.");
         return;
       }
     }
 
-    resetScannerModalState();
+    setScannerFeedback("Point camera at a product barcode.");
+    setScannerBusy(false);
     setIsScannerVisible(true);
   }
 
-  async function lookupBarcodeByCode(code: string) {
-    const trimmed = code.trim();
-    if (!trimmed) {
-      setScannerFeedback("Enter or scan a barcode.");
-      return;
-    }
-
-    setScannerLookupLoading(true);
-    setScannerFeedback("");
-    try {
-      const dto = await fetchProductByBarcode(trimmed);
-      const item = mapProductDtoToCatalog(dto);
-      setScannerPreviewProduct(item);
-      setManualBarcode(trimmed);
-    } catch {
-      setScannerFeedback(`No product for barcode: ${trimmed}`);
-    } finally {
-      setScannerLookupLoading(false);
-      setScannerBusy(false);
-    }
-  }
-
   function handleBarcodeScanned(scanResult: BarcodeScanningResult) {
-    if (scannerPreviewProduct || scannerLookupLoading || scannerBusy) {
-      return;
-    }
-
-    const scannedCode = scanResult.data?.trim() ?? "";
-    if (!scannedCode) {
-      setScannerFeedback("Invalid barcode.");
+    if (scannerBusy) {
       return;
     }
 
     setScannerBusy(true);
-    void lookupBarcodeByCode(scannedCode);
-  }
+    const scannedCode = scanResult.data?.trim() ?? "";
 
-  function handleManualBarcodeLookup() {
-    if (scannerLookupLoading || scannerBusy) return;
-    void lookupBarcodeByCode(manualBarcode);
-  }
+    const finish = () => {
+      setTimeout(() => {
+        setIsScannerVisible(false);
+        setScannerBusy(false);
+      }, 700);
+    };
 
-  function handleAddPreviewProductToCart() {
-    if (!scannerPreviewProduct) return;
-    const item = scannerPreviewProduct;
-    unstable_batchedUpdates(() => {
-      setProducts((prev) => {
-        if (prev.some((p) => p.id === item.id)) return prev;
-        return [item, ...prev];
-      });
-      setCartItems((current) => ({
-        ...current,
-        [item.id]: (current[item.id] ?? 0) + 1,
-      }));
-    });
-    setScannerPreviewProduct(null);
-    setScannerFeedback(`Added ${item.name} to cart. Scan or enter another.`);
-  }
+    if (!scannedCode) {
+      setScannerFeedback("Invalid barcode.");
+      finish();
+      return;
+    }
 
-  function handleScannerBackToCamera() {
-    setScannerPreviewProduct(null);
-    setScannerBusy(false);
-    setScannerLookupLoading(false);
-    setScannerFeedback(
-      "Point camera at a product barcode or enter the code below.",
-    );
-  }
-
-  function closeScannerModal() {
-    setIsScannerVisible(false);
-    resetScannerModalState();
+    void (async () => {
+      try {
+        const dto = await fetchProductByBarcode(scannedCode);
+        const item = mapProductDtoToCatalog(dto);
+        // Batch so the product exists in `products` in the same render as cart qty
+        unstable_batchedUpdates(() => {
+          setProducts((prev) => {
+            if (prev.some((p) => p.id === item.id)) return prev;
+            return [item, ...prev];
+          });
+          setCartItems((current) => ({
+            ...current,
+            [item.id]: (current[item.id] ?? 0) + 1,
+          }));
+        });
+        setScannerFeedback(`Added ${item.name} to cart.`);
+      } catch {
+        setScannerFeedback(
+          `No product for barcode: ${scannedCode || "Unknown"}`,
+        );
+      } finally {
+        finish();
+      }
+    })();
   }
 
   return (
@@ -403,33 +318,25 @@ export default function HomeScreen() {
           productsLoading ? (
             <View style={styles.listEmpty}>
               <ActivityIndicator size="large" color={palette.primary} />
-              <Text
-                style={[styles.listEmptyText, { color: palette.mutedText }]}
-              >
+              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
                 Loading products…
               </Text>
             </View>
           ) : productsError ? (
             <View style={styles.listEmpty}>
-              <Text
-                style={[styles.listEmptyText, { color: palette.mutedText }]}
-              >
+              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
                 Pull to refresh or tap Retry above.
               </Text>
             </View>
           ) : products.length === 0 ? (
             <View style={styles.listEmpty}>
-              <Text
-                style={[styles.listEmptyText, { color: palette.mutedText }]}
-              >
+              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
                 No products in the catalog yet.
               </Text>
             </View>
           ) : (
             <View style={styles.listEmpty}>
-              <Text
-                style={[styles.listEmptyText, { color: palette.mutedText }]}
-              >
+              <Text style={[styles.listEmptyText, { color: palette.mutedText }]}>
                 No products match this category or search.
               </Text>
             </View>
@@ -440,250 +347,62 @@ export default function HomeScreen() {
       <Modal
         visible={isScannerVisible}
         animationType="slide"
-        onRequestClose={closeScannerModal}
+        onRequestClose={() => setIsScannerVisible(false)}
       >
-        <KeyboardAvoidingView
+        <View
           style={[
             styles.scannerScreen,
             { backgroundColor: palette.background },
           ]}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          {scannerPreviewProduct ? (
-            <ScrollView
-              style={styles.scannerPreviewScroll}
-              contentContainerStyle={styles.scannerPreviewContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator
-            >
-              <Text style={[styles.scannerPreviewTitle, { color: palette.text }]}>
-                Product found
-              </Text>
-              <Image
-                source={{
-                  uri:
-                    scannerPreviewProduct.imageCandidates[0] ??
-                    PRODUCT_IMAGE_PLACEHOLDER,
-                }}
-                style={styles.scannerPreviewImage}
-                contentFit="cover"
-                transition={200}
-              />
-              <Text
-                style={[styles.scannerPreviewName, { color: palette.text }]}
-                numberOfLines={3}
-              >
-                {scannerPreviewProduct.name}
-              </Text>
-              {scannerPreviewProduct.source.brand ? (
-                <Text
-                  style={[
-                    styles.scannerPreviewMeta,
-                    { color: palette.mutedText },
-                  ]}
-                >
-                  {scannerPreviewProduct.source.brand}
-                </Text>
-              ) : null}
-              <Text
-                style={[styles.scannerPreviewPrice, { color: palette.primary }]}
-              >
-                {scannerPreviewProduct.price}
-              </Text>
-              <Text
-                style={[styles.scannerPreviewMeta, { color: palette.mutedText }]}
-              >
-                {scannerPreviewProduct.unit}
-              </Text>
-              {scannerPreviewProduct.details ? (
-                <Text
-                  style={[
-                    styles.scannerPreviewDescription,
-                    { color: palette.mutedText },
-                  ]}
-                >
-                  {scannerPreviewProduct.details}
-                </Text>
-              ) : null}
-              <Text
-                style={[styles.scannerPreviewBarcode, { color: palette.text }]}
-              >
-                Barcode: {scannerPreviewProduct.barcode || "—"}
-              </Text>
+          <CameraView
+            style={styles.cameraView}
+            barcodeScannerSettings={{
+              barcodeTypes: [
+                "ean13",
+                "ean8",
+                "upc_a",
+                "upc_e",
+                "code128",
+                "qr",
+              ],
+            }}
+            onBarcodeScanned={scannerBusy ? undefined : handleBarcodeScanned}
+          />
 
+          <View
+            style={[
+              styles.scannerOverlay,
+              { backgroundColor: palette.overlay },
+            ]}
+          >
+            <Text style={styles.scannerTitle}>Scan Product Barcode</Text>
+            <Text style={styles.scannerHint}>{scannerFeedback}</Text>
+            <View style={styles.scannerActions}>
               <Pressable
                 style={[
-                  styles.scannerPreviewPrimaryBtn,
+                  styles.scannerButton,
                   { backgroundColor: palette.primary },
                 ]}
-                onPress={handleAddPreviewProductToCart}
+                onPress={() => {
+                  setScannerBusy(false);
+                  setScannerFeedback("Point camera at a product barcode.");
+                }}
               >
-                <Text style={styles.scannerPreviewPrimaryBtnText}>
-                  Add to cart
-                </Text>
+                <Text style={styles.scannerButtonText}>Scan Again</Text>
               </Pressable>
               <Pressable
                 style={[
-                  styles.scannerPreviewSecondaryBtn,
-                  { borderColor: palette.border },
+                  styles.scannerButton,
+                  { backgroundColor: palette.secondary },
                 ]}
-                onPress={handleScannerBackToCamera}
+                onPress={() => setIsScannerVisible(false)}
               >
-                <Text
-                  style={[
-                    styles.scannerPreviewSecondaryBtnText,
-                    { color: palette.text },
-                  ]}
-                >
-                  Scan or enter another
-                </Text>
+                <Text style={styles.scannerButtonText}>Close</Text>
               </Pressable>
-              <Pressable
-                style={[
-                  styles.scannerPreviewSecondaryBtn,
-                  { borderColor: palette.border },
-                ]}
-                onPress={closeScannerModal}
-              >
-                <Text
-                  style={[
-                    styles.scannerPreviewSecondaryBtnText,
-                    { color: palette.text },
-                  ]}
-                >
-                  Close
-                </Text>
-              </Pressable>
-            </ScrollView>
-          ) : (
-            <>
-              {cameraPermission?.granted ? (
-                <CameraView
-                  style={styles.cameraView}
-                  barcodeScannerSettings={{
-                    barcodeTypes: [
-                      "ean13",
-                      "ean8",
-                      "upc_a",
-                      "upc_e",
-                      "code128",
-                      "qr",
-                    ],
-                  }}
-                  onBarcodeScanned={
-                    scannerLookupLoading || scannerBusy
-                      ? undefined
-                      : handleBarcodeScanned
-                  }
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.cameraView,
-                    styles.scannerCameraPlaceholder,
-                    { backgroundColor: palette.surface },
-                  ]}
-                >
-                  <Text
-                    style={[styles.scannerCameraPlaceholderText, { color: palette.text }]}
-                  >
-                    Camera access is off. You can still look up a product by
-                    entering its barcode below.
-                  </Text>
-                </View>
-              )}
-
-              <View
-                style={[
-                  styles.scannerOverlay,
-                  { backgroundColor: palette.overlay },
-                ]}
-              >
-                <Text style={styles.scannerTitle}>Scan Product Barcode</Text>
-                {scannerLookupLoading ? (
-                  <ActivityIndicator color="#FFFFFF" style={{ marginVertical: 8 }} />
-                ) : (
-                  <Text style={styles.scannerHint}>{scannerFeedback}</Text>
-                )}
-
-                <View
-                  style={[
-                    styles.scannerManualCard,
-                    { backgroundColor: palette.surface },
-                  ]}
-                >
-                  <Text
-                    style={[styles.scannerManualLabel, { color: palette.text }]}
-                  >
-                    Enter barcode manually
-                  </Text>
-                  <TextInput
-                    value={manualBarcode}
-                    onChangeText={setManualBarcode}
-                    placeholder="EAN, UPC, or code"
-                    placeholderTextColor={palette.mutedText}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="default"
-                    editable={!scannerLookupLoading}
-                    style={[
-                      styles.scannerManualInput,
-                      {
-                        backgroundColor: palette.background,
-                        color: palette.text,
-                        borderColor: palette.border,
-                      },
-                    ]}
-                    onSubmitEditing={handleManualBarcodeLookup}
-                    returnKeyType="search"
-                  />
-                  <Pressable
-                    disabled={scannerLookupLoading}
-                    style={[
-                      styles.scannerManualSubmit,
-                      {
-                        backgroundColor: palette.primary,
-                        opacity: scannerLookupLoading ? 0.6 : 1,
-                      },
-                    ]}
-                    onPress={handleManualBarcodeLookup}
-                  >
-                    <Text style={styles.scannerManualSubmitText}>
-                      Look up product
-                    </Text>
-                  </Pressable>
-                </View>
-
-                <View style={styles.scannerActions}>
-                  <Pressable
-                    style={[
-                      styles.scannerButton,
-                      { backgroundColor: palette.primary },
-                    ]}
-                    onPress={() => {
-                      setScannerBusy(false);
-                      setScannerLookupLoading(false);
-                      setScannerFeedback(
-                        "Point camera at a product barcode or enter the code below.",
-                      );
-                    }}
-                  >
-                    <Text style={styles.scannerButtonText}>Reset</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.scannerButton,
-                      { backgroundColor: palette.secondary },
-                    ]}
-                    onPress={closeScannerModal}
-                  >
-                    <Text style={styles.scannerButtonText}>Close</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </>
-          )}
-        </KeyboardAvoidingView>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       <Modal
@@ -696,13 +415,7 @@ export default function HomeScreen() {
           style={[styles.modalBackdrop, { backgroundColor: palette.overlay }]}
         >
           <View
-            style={[
-              styles.modalCard,
-              {
-                backgroundColor: palette.surface,
-                maxHeight: cartModalMaxHeight,
-              },
-            ]}
+            style={[styles.modalCard, { backgroundColor: palette.surface }]}
           >
             <View style={styles.modalHeaderRow}>
               <Text style={[styles.modalTitle, { color: palette.text }]}>
@@ -731,179 +444,151 @@ export default function HomeScreen() {
                 Your cart is empty.
               </Text>
             ) : (
-              <View style={styles.cartModalColumn}>
-                <ScrollView
-                  style={{ maxHeight: cartItemsScrollMaxHeight }}
-                  contentContainerStyle={styles.cartItemsScrollContent}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator
-                >
-                  {cartProducts.map((product) => {
-                    const quantity = cartItems[product.id] ?? 0;
-                    const itemTotal = product.priceValue * quantity;
+              <>
+                {cartProducts.map((product) => {
+                  const quantity = cartItems[product.id] ?? 0;
+                  const itemTotal = product.priceValue * quantity;
 
-                    return (
-                      <View
-                        key={product.id}
-                        style={[
-                          styles.cartRow,
-                          { borderBottomColor: palette.border },
-                        ]}
-                      >
-                        <View style={styles.cartInfoColumn}>
+                  return (
+                    <View
+                      key={product.id}
+                      style={[
+                        styles.cartRow,
+                        { borderBottomColor: palette.border },
+                      ]}
+                    >
+                      <View style={styles.cartInfoColumn}>
+                        <Text
+                          style={[styles.cartItemName, { color: palette.text }]}
+                        >
+                          {product.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.cartItemPrice,
+                            { color: palette.mutedText },
+                          ]}
+                        >
+                          {product.price} each
+                        </Text>
+                        <Pressable
+                          onPress={() => handleRemoveFromCart(product.id)}
+                        >
                           <Text
                             style={[
-                              styles.cartItemName,
-                              { color: palette.text },
+                              styles.removeText,
+                              { color: palette.danger },
                             ]}
                           >
-                            {product.name}
+                            Remove
                           </Text>
-                          <Text
+                        </Pressable>
+                      </View>
+
+                      <View style={styles.cartControlsColumn}>
+                        <View style={styles.qtyControlRow}>
+                          <Pressable
+                            onPress={() => handleDecreaseFromCart(product.id)}
                             style={[
-                              styles.cartItemPrice,
-                              { color: palette.mutedText },
+                              styles.qtyButton,
+                              { backgroundColor: palette.primary },
                             ]}
                           >
-                            {product.price} each
+                            <Text style={styles.qtyButtonText}>-</Text>
+                          </Pressable>
+                          <Text
+                            style={[
+                              styles.cartItemQty,
+                              { color: palette.primary },
+                            ]}
+                          >
+                            {quantity}
                           </Text>
                           <Pressable
-                            onPress={() => handleRemoveFromCart(product.id)}
-                          >
-                            <Text
-                              style={[
-                                styles.removeText,
-                                { color: palette.danger },
-                              ]}
-                            >
-                              Remove
-                            </Text>
-                          </Pressable>
-                        </View>
-
-                        <View style={styles.cartControlsColumn}>
-                          <View style={styles.qtyControlRow}>
-                            <Pressable
-                              onPress={() => handleDecreaseFromCart(product.id)}
-                              style={[
-                                styles.qtyButton,
-                                { backgroundColor: palette.primary },
-                              ]}
-                            >
-                              <Text style={styles.qtyButtonText}>-</Text>
-                            </Pressable>
-                            <Text
-                              style={[
-                                styles.cartItemQty,
-                                { color: palette.primary },
-                              ]}
-                            >
-                              {quantity}
-                            </Text>
-                            <Pressable
-                              onPress={() => handleAddToCart(product.id)}
-                              style={[
-                                styles.qtyButton,
-                                { backgroundColor: palette.primary },
-                              ]}
-                            >
-                              <Text style={styles.qtyButtonText}>+</Text>
-                            </Pressable>
-                          </View>
-                          <Text
+                            onPress={() => handleAddToCart(product.id)}
                             style={[
-                              styles.itemTotalText,
-                              { color: palette.text },
+                              styles.qtyButton,
+                              { backgroundColor: palette.primary },
                             ]}
                           >
-                            {formatCurrency(itemTotal)}
-                          </Text>
+                            <Text style={styles.qtyButtonText}>+</Text>
+                          </Pressable>
                         </View>
+                        <Text
+                          style={[
+                            styles.itemTotalText,
+                            { color: palette.text },
+                          ]}
+                        >
+                          {formatCurrency(itemTotal)}
+                        </Text>
                       </View>
-                    );
-                  })}
-                </ScrollView>
+                    </View>
+                  );
+                })}
 
-                <View style={styles.cartModalFooter}>
-                  <View
-                    style={[
-                      styles.totalRow,
-                      { borderTopColor: palette.border },
-                    ]}
-                  >
-                    <Text style={[styles.totalLabel, { color: palette.text }]}>
-                      Subtotal
+                <View
+                  style={[styles.totalRow, { borderTopColor: palette.border }]}
+                >
+                  <Text style={[styles.totalLabel, { color: palette.text }]}>
+                    Subtotal
+                  </Text>
+                  <Text style={[styles.totalValue, { color: palette.primary }]}>
+                    {formatCurrency(cartSubtotal)}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.paymentCard,
+                    {
+                      backgroundColor: palette.background,
+                      borderColor: palette.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.paymentHeader}>
+                    <Text
+                      style={[
+                        styles.paymentLabel,
+                        { color: palette.mutedText },
+                      ]}
+                    >
+                      Payment Method
                     </Text>
                     <Text
-                      style={[styles.totalValue, { color: palette.primary }]}
+                      style={[styles.paymentChange, { color: palette.primary }]}
                     >
-                      {formatCurrency(cartSubtotal)}
+                      Selected
                     </Text>
                   </View>
-
-                  <View
-                    style={[
-                      styles.paymentCard,
-                      {
-                        backgroundColor: palette.background,
-                        borderColor: palette.border,
-                      },
-                    ]}
-                  >
-                    <View style={styles.paymentHeader}>
-                      <Text
-                        style={[
-                          styles.paymentLabel,
-                          { color: palette.mutedText },
-                        ]}
-                      >
-                        Payment Method
-                      </Text>
-                      <Text
-                        style={[
-                          styles.paymentChange,
-                          { color: palette.primary },
-                        ]}
-                      >
-                        Selected
-                      </Text>
+                  <View style={styles.paymentMethodRow}>
+                    <View style={styles.paypalBadge}>
+                      <Text style={styles.paypalBadgeText}>PayPal</Text>
                     </View>
-                    <View style={styles.paymentMethodRow}>
-                      <View style={styles.paypalBadge}>
-                        <Text style={styles.paypalBadgeText}>PayPal</Text>
-                      </View>
-                      <Text
-                        style={[
-                          styles.paymentMethodText,
-                          { color: palette.text },
-                        ]}
-                      >
-                        Pay with PayPal
-                      </Text>
-                    </View>
+                    <Text
+                      style={[
+                        styles.paymentMethodText,
+                        { color: palette.text },
+                      ]}
+                    >
+                      Pay with PayPal
+                    </Text>
                   </View>
-
-                  <Pressable
-                    disabled={checkoutBusy}
-                    onPress={() => void handleProceedCheckout()}
-                    style={[
-                      styles.checkoutButton,
-                      {
-                        backgroundColor: palette.primary,
-                        opacity: checkoutBusy ? 0.7 : 1,
-                      },
-                    ]}
-                  >
-                    {checkoutBusy ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.checkoutButtonText}>
-                        Proceed to Checkout
-                      </Text>
-                    )}
-                  </Pressable>
                 </View>
-              </View>
+
+                <Pressable
+                  onPress={handleProceedCheckout}
+                  style={[
+                    styles.checkoutButton,
+                    { backgroundColor: palette.primary },
+                  ]}
+                >
+                  <Text style={styles.checkoutButtonText}>
+                    Proceed to Checkout
+                  </Text>
+                </Pressable>
+              </>
             )}
           </View>
         </View>
@@ -1010,114 +695,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
-  scannerCameraPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  scannerCameraPlaceholderText: {
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  scannerManualCard: {
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-    marginTop: 4,
-  },
-  scannerManualLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  scannerManualInput: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  scannerManualSubmit: {
-    minHeight: 44,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scannerManualSubmitText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 15,
-  },
-  scannerPreviewScroll: {
-    flex: 1,
-  },
-  scannerPreviewContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 36,
-  },
-  scannerPreviewTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 12,
-  },
-  scannerPreviewImage: {
-    width: "100%",
-    height: 220,
-    borderRadius: 14,
-    backgroundColor: "#E9ECEF",
-    marginBottom: 14,
-  },
-  scannerPreviewName: {
-    fontSize: 20,
-    fontWeight: "800",
-    lineHeight: 26,
-  },
-  scannerPreviewMeta: {
-    fontSize: 14,
-    marginTop: 6,
-  },
-  scannerPreviewPrice: {
-    fontSize: 22,
-    fontWeight: "900",
-    marginTop: 10,
-  },
-  scannerPreviewDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 12,
-  },
-  scannerPreviewBarcode: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginTop: 14,
-  },
-  scannerPreviewPrimaryBtn: {
-    marginTop: 22,
-    minHeight: 52,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scannerPreviewPrimaryBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  scannerPreviewSecondaryBtn: {
-    marginTop: 12,
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scannerPreviewSecondaryBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.35)",
@@ -1129,18 +706,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     padding: 16,
     paddingBottom: 28,
-  },
-  cartModalColumn: {
-    flexShrink: 1,
-  },
-  cartItemsScrollContent: {
-    paddingBottom: 8,
-    /** Gutter so the vertical scroll thumb sits right of the qty + / − controls (LTR). */
-    paddingEnd: 18,
-  },
-  cartModalFooter: {
-    flexShrink: 0,
-    paddingTop: 8,
+    maxHeight: "60%",
   },
   modalHeaderRow: {
     flexDirection: "row",

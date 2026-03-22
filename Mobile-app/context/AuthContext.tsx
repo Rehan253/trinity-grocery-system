@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         /* keep login payload if /auth/me fails */
       }
       setUser(profile);
-      await saveSession(res.access_token, JSON.stringify(profile));
+      await saveSession(res.access_token, JSON.stringify(profile), res.refresh_token);
       setLoading(false);
       return true;
     } catch (e) {

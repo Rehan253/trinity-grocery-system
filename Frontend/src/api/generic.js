@@ -2,6 +2,84 @@ import axios from "axios"
 import { getBaseApiUrl } from "../constants/Urls"
 import { formatErrorMessage } from "../constants/Utils"
 
+// ── Refresh token interceptor ──────────────────────────────────────
+
+let isRefreshing = false
+let failedQueue = []
+
+const processQueue = (error, token) => {
+    failedQueue.forEach((p) => {
+        if (token) {
+            p.resolve(token)
+        } else {
+            p.reject(error)
+        }
+    })
+    failedQueue = []
+}
+
+axios.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config
+
+        if (
+            error.response?.status !== 401 ||
+            originalRequest._retry ||
+            originalRequest.url?.includes("/auth/refresh") ||
+            originalRequest.url?.includes("/auth/login")
+        ) {
+            return Promise.reject(error)
+        }
+
+        if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+                failedQueue.push({
+                    resolve: (token) => {
+                        originalRequest.headers["Authorization"] = `Bearer ${token}`
+                        resolve(axios(originalRequest))
+                    },
+                    reject,
+                })
+            })
+        }
+
+        originalRequest._retry = true
+        isRefreshing = true
+
+        try {
+            const refreshToken = localStorage.getItem("refresh_token")
+            if (!refreshToken) throw new Error("No refresh token")
+
+            const { data } = await axios.post(
+                getBaseApiUrl() + "auth/refresh",
+                {},
+                { headers: { Authorization: `Bearer ${refreshToken}` } }
+            )
+
+            const newToken = data.access_token
+            localStorage.setItem("token", newToken)
+            axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`
+            processQueue(null, newToken)
+
+            originalRequest.headers["Authorization"] = `Bearer ${newToken}`
+            return axios(originalRequest)
+        } catch (refreshError) {
+            processQueue(refreshError, null)
+            // Refresh failed — clear session and redirect to login
+            localStorage.removeItem("token")
+            localStorage.removeItem("refresh_token")
+            localStorage.removeItem("user")
+            window.location.href = "/login"
+            return Promise.reject(refreshError)
+        } finally {
+            isRefreshing = false
+        }
+    }
+)
+
+// ── API methods ────────────────────────────────────────────────────
+
 export const sendPost = async (url, body, baseUrl) => {
     var fullUrl
     if (url.includes("placeholder")) {
@@ -133,7 +211,6 @@ const handleResponse = (response) => {
         const errorMessage = formatErrorMessage(
             response.data?.errors || response.data?.message || "An unknown error occurred"
         )
-        // alert(errorMessage)
         return {
             status: "Error",
             errorMessage: errorMessage

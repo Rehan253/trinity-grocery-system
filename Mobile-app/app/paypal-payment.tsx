@@ -1,6 +1,4 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
@@ -24,7 +22,6 @@ import {
   createInvoice,
   createPaypalOrder,
 } from "@/lib/api/payments";
-import { CLEAR_CART_AFTER_CHECKOUT_KEY } from "@/lib/storage/checkoutFlags";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -139,17 +136,12 @@ export default function PaypalPaymentScreen() {
       setStatusMsg("Completing payment...");
       const capture = await capturePaypalOrder(invoiceId, orderId);
 
-      const paid =
-        String(capture.capture_status ?? "").toUpperCase() === "COMPLETED";
-      if (paid) {
-        try {
-          await AsyncStorage.setItem(CLEAR_CART_AFTER_CHECKOUT_KEY, "1");
-        } catch {
-          /* still show success; home may not clear until next visit */
-        }
+      if (capture.capture_status === "COMPLETED") {
         setStep("success");
       } else {
-        setErrorMsg(`Payment not completed. Status: ${capture.capture_status}`);
+        setErrorMsg(
+          `Payment not completed. Status: ${capture.capture_status}`,
+        );
         setStep("error");
       }
     } catch (e) {
@@ -222,7 +214,9 @@ export default function PaypalPaymentScreen() {
             ]}
           >
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: palette.mutedText }]}>
+              <Text
+                style={[styles.summaryLabel, { color: palette.mutedText }]}
+              >
                 Items
               </Text>
               <Text style={[styles.summaryValue, { color: palette.text }]}>
@@ -230,7 +224,9 @@ export default function PaypalPaymentScreen() {
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: palette.mutedText }]}>
+              <Text
+                style={[styles.summaryLabel, { color: palette.mutedText }]}
+              >
                 Payment Method
               </Text>
               <Text style={[styles.summaryValue, { color: palette.text }]}>
@@ -238,11 +234,16 @@ export default function PaypalPaymentScreen() {
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryTotalLabel, { color: palette.text }]}>
+              <Text
+                style={[styles.summaryTotalLabel, { color: palette.text }]}
+              >
                 Total
               </Text>
               <Text
-                style={[styles.summaryTotalValue, { color: palette.primary }]}
+                style={[
+                  styles.summaryTotalValue,
+                  { color: palette.primary },
+                ]}
               >
                 ${amount}
               </Text>
@@ -320,7 +321,9 @@ export default function PaypalPaymentScreen() {
                 {statusMsg}
               </Text>
               {step === "approving" && (
-                <Text style={[styles.statusHint, { color: palette.mutedText }]}>
+                <Text
+                  style={[styles.statusHint, { color: palette.mutedText }]}
+                >
                   Complete the payment on the PayPal page that opened.{"\n"}
                   Return here when done.
                 </Text>
@@ -347,7 +350,9 @@ export default function PaypalPaymentScreen() {
               <Text style={[styles.successTitle, { color: palette.text }]}>
                 Payment Successful
               </Text>
-              <Text style={[styles.successText, { color: palette.mutedText }]}>
+              <Text
+                style={[styles.successText, { color: palette.mutedText }]}
+              >
                 Your PayPal payment has been completed. You can view this order
                 in your Profile under Order History.
               </Text>
@@ -369,7 +374,9 @@ export default function PaypalPaymentScreen() {
               <Text style={[styles.errorTitle, { color: palette.danger }]}>
                 Payment Failed
               </Text>
-              <Text style={[styles.errorText, { color: palette.mutedText }]}>
+              <Text
+                style={[styles.errorText, { color: palette.mutedText }]}
+              >
                 {errorMsg}
               </Text>
               <Pressable
@@ -390,13 +397,7 @@ export default function PaypalPaymentScreen() {
           {/* Back / Cancel button */}
           <Pressable
             style={[styles.backButton, { borderColor: palette.border }]}
-            onPress={() => {
-              if (step === "success") {
-                router.replace("/(tabs)");
-                return;
-              }
-              router.back();
-            }}
+            onPress={() => router.back()}
           >
             <Text style={[styles.backButtonText, { color: palette.text }]}>
               {step === "success" ? "Back to Store" : "Cancel"}
