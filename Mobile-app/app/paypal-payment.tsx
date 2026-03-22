@@ -24,6 +24,7 @@ import {
   createInvoice,
   createPaypalOrder,
 } from "@/lib/api/payments";
+import { CLEAR_CART_AFTER_CHECKOUT_KEY } from "@/lib/storage/checkoutFlags";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -138,7 +139,14 @@ export default function PaypalPaymentScreen() {
       setStatusMsg("Completing payment...");
       const capture = await capturePaypalOrder(invoiceId, orderId);
 
-      if (capture.capture_status === "COMPLETED") {
+      const paid =
+        String(capture.capture_status ?? "").toUpperCase() === "COMPLETED";
+      if (paid) {
+        try {
+          await AsyncStorage.setItem(CLEAR_CART_AFTER_CHECKOUT_KEY, "1");
+        } catch {
+          /* still show success; home may not clear until next visit */
+        }
         setStep("success");
       } else {
         setErrorMsg(`Payment not completed. Status: ${capture.capture_status}`);
@@ -382,7 +390,13 @@ export default function PaypalPaymentScreen() {
           {/* Back / Cancel button */}
           <Pressable
             style={[styles.backButton, { borderColor: palette.border }]}
-            onPress={() => router.back()}
+            onPress={() => {
+              if (step === "success") {
+                router.replace("/(tabs)");
+                return;
+              }
+              router.back();
+            }}
           >
             <Text style={[styles.backButtonText, { color: palette.text }]}>
               {step === "success" ? "Back to Store" : "Cancel"}
