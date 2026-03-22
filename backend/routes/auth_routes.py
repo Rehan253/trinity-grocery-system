@@ -1,8 +1,12 @@
 import json
 from flask import Blueprint, request, jsonify
 from sqlalchemy.exc import IntegrityError
-from flask_jwt_extended import create_access_token
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    get_jwt_identity,
+    jwt_required,
+)
 
 
 from extensions import db
@@ -237,13 +241,14 @@ def login():
     if not verify_password(password, user.password_hash):
         return jsonify({"message": "Invalid email or password"}), 401
 
-    # Create JWT token
-    
-    access_token = create_access_token(identity=str(user.id))
-
+    # Create JWT tokens
+    identity = str(user.id)
+    access_token = create_access_token(identity=identity)
+    refresh_token = create_refresh_token(identity=identity)
 
     return jsonify({
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "user": {
             "id": user.id,
             "email": user.email,
@@ -251,6 +256,27 @@ def login():
             "last_name": user.last_name
         }
     }), 200
+
+@auth_bp.post("/refresh")
+@jwt_required(refresh=True)
+def refresh():
+    """
+    Get a new access token using a refresh token
+    ---
+    tags:
+      - Authentication
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: New access token issued
+      401:
+        description: Invalid or expired refresh token
+    """
+    identity = get_jwt_identity()
+    new_access_token = create_access_token(identity=identity)
+    return jsonify({"access_token": new_access_token}), 200
+
 
 @auth_bp.get("/me")
 @jwt_required()
