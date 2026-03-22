@@ -16,7 +16,6 @@ def _extract_name_parts(delivery):
     first_name = _clean_text(delivery.get("firstName") or delivery.get("first_name"))
     last_name = _clean_text(delivery.get("lastName") or delivery.get("last_name"))
 
-    # Backward compatibility: existing mobile payload sends "fullName".
     full_name = _clean_text(delivery.get("fullName") or delivery.get("full_name"))
     if full_name and (not first_name or not last_name):
         parts = [part for part in full_name.split() if part]
