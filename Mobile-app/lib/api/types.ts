@@ -70,3 +70,30 @@ export type MyInvoiceSummaryDto = {
   payment_method: string | null;
   item_count: number;
 };
+
+/** POST /invoices/ — deliveryAddress matches Flask `invoice_routes`. */
+export type CreateInvoiceDeliveryAddress = {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  address: string;
+  zipCode: string;
+  city: string;
+  state?: string;
+  apartment?: string;
+  deliveryNotes?: string;
+};
+
+export type CreateInvoicePayload = {
+  paymentMethod?: string;
+  deliveryAddress: CreateInvoiceDeliveryAddress;
+};
+
+export type CreateInvoiceResponse = {
+  message: string;
+  invoice_id: number;
+  created_at: string;
+  payment_status: string;
+};
