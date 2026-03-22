@@ -140,6 +140,26 @@ def _merge_unique_recommendations(*recommendation_lists, limit=12):
     return merged
 
 
+def _top_up_recommendations(existing, purchased_product_ids, limit=12):
+    if len(existing) >= limit:
+        return existing[:limit]
+
+    seen = {str(item.get("objectID", "")) for item in existing if item.get("objectID") is not None}
+    excluded = {str(pid) for pid in purchased_product_ids if pid is not None}
+
+    fallback_products = Product.query.order_by(Product.created_at.desc()).limit(limit * 4).all()
+    for product in fallback_products:
+        object_id = str(product.id)
+        if object_id in seen or object_id in excluded:
+            continue
+        existing.append(_product_to_json(product))
+        seen.add(object_id)
+        if len(existing) >= limit:
+            break
+
+    return existing[:limit]
+
+
 @recommendation_bp.post("/sync-products")
 @admin_required
 def sync_products():
@@ -204,6 +224,7 @@ def get_recommendations(user_id):
     checkout_based = _recommend_checkout_based(purchased_product_ids, limit=8)
     also_bought = _recommend_also_bought(purchased_product_ids, limit=8)
     merged = _merge_unique_recommendations(also_bought, checkout_based, limit=12)
+    merged = _top_up_recommendations(merged, purchased_product_ids, limit=12)
 
     # Safety fallback to keep API non-empty for frontend
     if not merged:
