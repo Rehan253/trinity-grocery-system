@@ -14,6 +14,7 @@ export type AuthUser = {
 
 export type LoginResponse = {
   access_token: string;
+  refresh_token: string;
   user: AuthUser;
 };
 
@@ -71,24 +72,26 @@ export type MyInvoiceSummaryDto = {
   item_count: number;
 };
 
-/** POST /invoices/ — deliveryAddress matches Flask `invoice_routes`. */
-export type CreateInvoiceDeliveryAddress = {
+export type DeliveryAddressPayload = {
+  fullName?: string;
   firstName?: string;
   lastName?: string;
-  fullName?: string;
   email?: string;
   phone?: string;
   address: string;
-  zipCode: string;
+  apartment?: string;
   city: string;
   state?: string;
-  apartment?: string;
+  zipCode: string;
   deliveryNotes?: string;
 };
 
+/** Backward-compatible alias for older payment flow code. */
+export type CreateInvoiceDeliveryAddress = DeliveryAddressPayload;
+
 export type CreateInvoicePayload = {
-  paymentMethod?: string;
-  deliveryAddress: CreateInvoiceDeliveryAddress;
+  paymentMethod?: "paypal" | "card" | "cod";
+  deliveryAddress: DeliveryAddressPayload;
 };
 
 export type CreateInvoiceResponse = {
@@ -96,4 +99,53 @@ export type CreateInvoiceResponse = {
   invoice_id: number;
   created_at: string;
   payment_status: string;
+};
+
+export type AddInvoiceItemPayload = {
+  product_id: number;
+  quantity: number;
+};
+
+export type PaypalCreateOrderResponse = {
+  message: string;
+  order_id: string;
+  order_status?: string;
+  approve_url?: string | null;
+  amount_value?: string;
+  currency_code?: string;
+  mock?: boolean;
+  invoice?: Record<string, unknown>;
+};
+
+export type PaypalCaptureOrderResponse = {
+  message: string;
+  capture_status: string;
+  capture_id?: string | null;
+  captured_amount?: string;
+  currency_code?: string | null;
+  algolia_purchase_event?: {
+    sent: boolean;
+    reason?: string;
+  };
+  invoice?: Record<string, unknown>;
+};
+
+export type RecommendationItemDto = {
+  objectID: string;
+  name?: string | null;
+  brand?: string | null;
+  category?: string | null;
+  price?: number | null;
+  picture_url?: string | null;
+};
+
+export type RecommendationsResponse = {
+  user_id: number;
+  purchased_product_ids: number[];
+  checkout_based_count: number;
+  also_bought_count: number;
+  recommended_count: number;
+  checkout_based: RecommendationItemDto[];
+  also_bought: RecommendationItemDto[];
+  recommendations: RecommendationItemDto[];
 };

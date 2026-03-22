@@ -1,6 +1,4 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
@@ -18,27 +16,68 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { useAppTheme } from "@/hooks/use-app-theme";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { addInvoiceItemRequest, createInvoiceRequest } from "@/lib/api/invoices";
 import {
-  addInvoiceItem,
-  capturePaypalOrder,
-  createInvoice,
-  createPaypalOrder,
+  capturePaypalOrderRequest,
+  createPaypalOrderRequest,
 } from "@/lib/api/payments";
-import { CLEAR_CART_AFTER_CHECKOUT_KEY } from "@/lib/storage/checkoutFlags";
-
-// ── Types ────────────────────────────────────────────────────────────
 
 type CartEntry = { productId: number; quantity: number };
 
 type PaymentStep =
-  | "form" // delivery address form
-  | "processing" // creating invoice + PayPal order
-  | "approving" // user is on PayPal
-  | "capturing" // capturing payment after approval
+  | "form"
+  | "processing"
+  | "approving"
+  | "capturing"
   | "success"
   | "error";
 
-// ── Component ────────────────────────────────────────────────────────
+function parseCartEntries(
+  cartData?: string,
+  cart?: string,
+): CartEntry[] {
+  if (typeof cart === "string" && cart.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(cart);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => {
+            const productId = Number(
+              (item as { product_id?: number | string }).product_id,
+            );
+            const quantity = Number(
+              (item as { quantity?: number | string }).quantity,
+            );
+            if (!Number.isInteger(productId) || productId <= 0) return null;
+            if (!Number.isInteger(quantity) || quantity <= 0) return null;
+            return { productId, quantity };
+          })
+          .filter((item): item is CartEntry => item !== null);
+      }
+    } catch {
+      // Fall through to the legacy payload format.
+    }
+  }
+
+  if (typeof cartData === "string" && cartData.trim()) {
+    try {
+      const raw: Record<string, number> = JSON.parse(cartData);
+      return Object.entries(raw)
+        .map(([id, qty]) => {
+          const productId = Number(id);
+          const quantity = Number(qty);
+          if (!Number.isInteger(productId) || productId <= 0) return null;
+          if (!Number.isInteger(quantity) || quantity <= 0) return null;
+          return { productId, quantity };
+        })
+        .filter((item): item is CartEntry => item !== null);
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
 
 export default function PaypalPaymentScreen() {
   const router = useRouter();
@@ -48,25 +87,13 @@ export default function PaypalPaymentScreen() {
     amount?: string;
     items?: string;
     cartData?: string;
+    cart?: string;
   }>();
 
   const amount = params.amount ?? "0.00";
   const itemCount = params.items ?? "0";
+  const cartEntries = parseCartEntries(params.cartData, params.cart);
 
-  // Parse cart data passed from the home screen
-  const cartEntries: CartEntry[] = (() => {
-    try {
-      const raw: Record<string, number> = JSON.parse(params.cartData ?? "{}");
-      return Object.entries(raw).map(([id, qty]) => ({
-        productId: Number(id),
-        quantity: qty,
-      }));
-    } catch {
-      return [];
-    }
-  })();
-
-  // Delivery form state — pre-filled from user profile
   const [firstName, setFirstName] = useState(user?.first_name ?? "");
   const [lastName, setLastName] = useState(user?.last_name ?? "");
   const [address, setAddress] = useState(user?.address ?? "");
@@ -74,10 +101,11 @@ export default function PaypalPaymentScreen() {
   const [zipCode, setZipCode] = useState(user?.zip_code ?? "");
   const [phone, setPhone] = useState(user?.phone_number ?? "");
 
-  // Payment flow state
   const [step, setStep] = useState<PaymentStep>("form");
   const [errorMsg, setErrorMsg] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
+  const [invoiceId, setInvoiceId] = useState<number | null>(null);
+  const [captureId, setCaptureId] = useState<string | null>(null);
 
   const isFormValid =
     firstName.trim() &&
@@ -86,45 +114,54 @@ export default function PaypalPaymentScreen() {
     city.trim() &&
     zipCode.trim();
 
-  // ── Full payment flow ──────────────────────────────────────────────
-
   async function handlePayWithPaypal() {
-    if (!isFormValid || cartEntries.length === 0) return;
+    if (!user) {
+      setErrorMsg("You must be logged in.");
+      setStep("error");
+      return;
+    }
+
+    if (!isFormValid || cartEntries.length === 0) {
+      return;
+    }
 
     setStep("processing");
     setErrorMsg("");
 
     try {
-      // 1. Create invoice
       setStatusMsg("Creating your order...");
-      const invoice = await createInvoice(
-        {
+      const invoice = await createInvoiceRequest({
+        paymentMethod: "paypal",
+        deliveryAddress: {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
+          fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
+          email: user.email,
+          phone: phone.trim(),
           address: address.trim(),
           city: city.trim(),
+          state: user.state ?? undefined,
           zipCode: zipCode.trim(),
-          phone: phone.trim(),
-          email: user?.email,
         },
-        "paypal",
-      );
-      const invoiceId = invoice.invoice_id;
+      });
 
-      // 2. Add cart items to invoice
+      const currentInvoiceId = Number(invoice.invoice_id);
+      setInvoiceId(currentInvoiceId);
+
       setStatusMsg("Adding items to order...");
       for (const entry of cartEntries) {
-        await addInvoiceItem(invoiceId, entry.productId, entry.quantity);
+        await addInvoiceItemRequest(currentInvoiceId, {
+          product_id: entry.productId,
+          quantity: entry.quantity,
+        });
       }
 
-      // 3. Create PayPal order
       setStatusMsg("Connecting to PayPal...");
-      const paypalOrder = await createPaypalOrder(invoiceId);
-      const { order_id: orderId, approve_url: approveUrl, mock } = paypalOrder;
+      const order = await createPaypalOrderRequest(currentInvoiceId);
+      const { order_id: orderId, approve_url: approveUrl, mock } = order;
 
-      // 4. Open PayPal in browser for user approval (skip in mock mode)
       if (mock) {
-        setStatusMsg("Mock payment — skipping PayPal approval...");
+        setStatusMsg("Mock payment enabled. Skipping PayPal approval...");
       } else {
         if (!approveUrl) {
           throw new Error("No PayPal approval URL received");
@@ -134,31 +171,23 @@ export default function PaypalPaymentScreen() {
         await WebBrowser.openBrowserAsync(approveUrl);
       }
 
-      // 5. User returned from PayPal — try to capture
       setStep("capturing");
       setStatusMsg("Completing payment...");
-      const capture = await capturePaypalOrder(invoiceId, orderId);
+      const capture = await capturePaypalOrderRequest(currentInvoiceId, orderId);
 
-      const paid =
-        String(capture.capture_status ?? "").toUpperCase() === "COMPLETED";
-      if (paid) {
-        try {
-          await AsyncStorage.setItem(CLEAR_CART_AFTER_CHECKOUT_KEY, "1");
-        } catch {
-          /* still show success; home may not clear until next visit */
-        }
-        setStep("success");
-      } else {
-        setErrorMsg(`Payment not completed. Status: ${capture.capture_status}`);
-        setStep("error");
+      if (capture.capture_status !== "COMPLETED") {
+        throw new Error(
+          `Payment not completed. Status: ${capture.capture_status || "UNKNOWN"}`,
+        );
       }
+
+      setCaptureId(capture.capture_id ?? null);
+      setStep("success");
     } catch (e) {
       setErrorMsg(getApiErrorMessage(e, "Payment failed. Please try again."));
       setStep("error");
     }
   }
-
-  // ── Render helpers ─────────────────────────────────────────────────
 
   function renderInput(
     label: string,
@@ -189,7 +218,13 @@ export default function PaypalPaymentScreen() {
     );
   }
 
-  // ── Main render ────────────────────────────────────────────────────
+  const handleBack = () => {
+    if (step === "success") {
+      router.replace("/(tabs)/recommendations");
+      return;
+    }
+    router.back();
+  };
 
   return (
     <SafeAreaView
@@ -197,7 +232,6 @@ export default function PaypalPaymentScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={[styles.card, { backgroundColor: palette.surface }]}>
-          {/* Header */}
           <View style={styles.logoRow}>
             <View style={styles.paypalBadge}>
               <Text style={styles.paypalBadgeText}>PayPal</Text>
@@ -211,7 +245,6 @@ export default function PaypalPaymentScreen() {
             Secure checkout for your grocery order.
           </Text>
 
-          {/* Order Summary */}
           <View
             style={[
               styles.summaryCard,
@@ -249,7 +282,6 @@ export default function PaypalPaymentScreen() {
             </View>
           </View>
 
-          {/* ─── STEP: Delivery Address Form ─── */}
           {step === "form" && (
             <>
               <Text
@@ -310,7 +342,6 @@ export default function PaypalPaymentScreen() {
             </>
           )}
 
-          {/* ─── STEP: Processing / Approving / Capturing ─── */}
           {(step === "processing" ||
             step === "approving" ||
             step === "capturing") && (
@@ -321,14 +352,14 @@ export default function PaypalPaymentScreen() {
               </Text>
               {step === "approving" && (
                 <Text style={[styles.statusHint, { color: palette.mutedText }]}>
-                  Complete the payment on the PayPal page that opened.{"\n"}
+                  Complete the payment on the PayPal page that opened.
+                  {"\n"}
                   Return here when done.
                 </Text>
               )}
             </View>
           )}
 
-          {/* ─── STEP: Success ─── */}
           {step === "success" && (
             <View
               style={[
@@ -348,13 +379,21 @@ export default function PaypalPaymentScreen() {
                 Payment Successful
               </Text>
               <Text style={[styles.successText, { color: palette.mutedText }]}>
-                Your PayPal payment has been completed. You can view this order
-                in your Profile under Order History.
+                Your PayPal payment has been completed successfully.
               </Text>
+              {invoiceId ? (
+                <Text style={[styles.successMeta, { color: palette.mutedText }]}>
+                  Invoice ID: {invoiceId}
+                </Text>
+              ) : null}
+              {captureId ? (
+                <Text style={[styles.successMeta, { color: palette.mutedText }]}>
+                  Capture ID: {captureId}
+                </Text>
+              ) : null}
             </View>
           )}
 
-          {/* ─── STEP: Error ─── */}
           {step === "error" && (
             <View
               style={[
@@ -387,19 +426,12 @@ export default function PaypalPaymentScreen() {
             </View>
           )}
 
-          {/* Back / Cancel button */}
           <Pressable
             style={[styles.backButton, { borderColor: palette.border }]}
-            onPress={() => {
-              if (step === "success") {
-                router.replace("/(tabs)");
-                return;
-              }
-              router.back();
-            }}
+            onPress={handleBack}
           >
             <Text style={[styles.backButtonText, { color: palette.text }]}>
-              {step === "success" ? "Back to Store" : "Cancel"}
+              {step === "success" ? "View Recommendations" : "Cancel"}
             </Text>
           </Pressable>
         </View>
@@ -407,8 +439,6 @@ export default function PaypalPaymentScreen() {
     </SafeAreaView>
   );
 }
-
-// ── Styles ───────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   screen: {
@@ -480,7 +510,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
   },
-  // ── Form ──
   nameRow: {
     flexDirection: "row",
     gap: 10,
@@ -503,7 +532,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
   },
-  // ── Pay button ──
   payButton: {
     marginTop: 20,
     minHeight: 50,
@@ -516,7 +544,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
   },
-  // ── Status ──
   statusContainer: {
     marginTop: 24,
     alignItems: "center",
@@ -532,7 +559,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 19,
   },
-  // ── Success ──
   successCard: {
     marginTop: 20,
     borderWidth: 1,
@@ -551,7 +577,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 19,
   },
-  // ── Error ──
+  successMeta: {
+    marginTop: 6,
+    fontSize: 12,
+    textAlign: "center",
+  },
   errorCard: {
     marginTop: 20,
     borderWidth: 1,
@@ -581,7 +611,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
-  // ── Back button ──
   backButton: {
     marginTop: 12,
     minHeight: 48,

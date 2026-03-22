@@ -1,81 +1,41 @@
 import { apiClient } from "@/lib/api/client";
+import type {
+  PaypalCaptureOrderResponse,
+  PaypalCreateOrderResponse,
+} from "@/lib/api/types";
 
-// ── Invoice ──────────────────────────────────────────────────────────
-
-export type DeliveryAddress = {
-  firstName: string;
-  lastName: string;
-  address: string;
-  city: string;
-  zipCode: string;
-  phone?: string;
-  email?: string;
-};
-
-type CreateInvoiceResponse = {
-  invoice_id: number;
-  created_at: string;
-  payment_status: string;
-};
-
-export async function createInvoice(
-  delivery: DeliveryAddress,
-  paymentMethod = "paypal",
-): Promise<CreateInvoiceResponse> {
-  const { data } = await apiClient.post<CreateInvoiceResponse>("/invoices/", {
-    deliveryAddress: delivery,
-    paymentMethod,
-  });
-  return data;
-}
-
-export async function addInvoiceItem(
+/** POST /payments/paypal/create-order */
+export async function createPaypalOrderRequest(
   invoiceId: number,
-  productId: number,
-  quantity: number,
-) {
-  const { data } = await apiClient.post(`/invoices/${invoiceId}/items`, {
-    product_id: productId,
-    quantity,
-  });
-  return data;
-}
-
-// ── PayPal ───────────────────────────────────────────────────────────
-
-type CreatePaypalOrderResponse = {
-  message: string;
-  order_id: string;
-  approve_url: string;
-  mock?: boolean;
-  invoice: Record<string, unknown>;
-};
-
-export async function createPaypalOrder(
-  invoiceId: number,
-): Promise<CreatePaypalOrderResponse> {
-  const { data } = await apiClient.post<CreatePaypalOrderResponse>(
+): Promise<PaypalCreateOrderResponse> {
+  const { data } = await apiClient.post<PaypalCreateOrderResponse>(
     "/payments/paypal/create-order",
     { invoice_id: invoiceId },
   );
   return data;
 }
 
-type CapturePaypalOrderResponse = {
-  message: string;
-  capture_status: string;
-  capture_id?: string;
-  captured_amount?: string;
-  invoice: Record<string, unknown>;
-};
+/** Backward-compatible alias used by older screens. */
+export const createPaypalOrder = createPaypalOrderRequest;
 
-export async function capturePaypalOrder(
+/** POST /payments/paypal/capture-order */
+export async function capturePaypalOrderRequest(
   invoiceId: number,
-  orderId: string,
-): Promise<CapturePaypalOrderResponse> {
-  const { data } = await apiClient.post<CapturePaypalOrderResponse>(
+  orderId?: string,
+): Promise<PaypalCaptureOrderResponse> {
+  const payload: { invoice_id: number; order_id?: string } = {
+    invoice_id: invoiceId,
+  };
+  if (orderId) {
+    payload.order_id = orderId;
+  }
+
+  const { data } = await apiClient.post<PaypalCaptureOrderResponse>(
     "/payments/paypal/capture-order",
-    { invoice_id: invoiceId, order_id: orderId },
+    payload,
   );
   return data;
 }
+
+/** Backward-compatible alias used by older screens. */
+export const capturePaypalOrder = capturePaypalOrderRequest;

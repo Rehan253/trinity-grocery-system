@@ -31,7 +31,11 @@ class Config:
 
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+    # Access token: short-lived (15 minutes) — used for every API request
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
+
+    # Refresh token: long-lived (30 days) — used only to get new access tokens
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 
     # ===============================
     # PayPal configuration

@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from extensions import db
-from models import Invoice
+from models import Invoice, Product
 from services.paypal_service import (
     _is_mock_mode,
     capture_paypal_order,
@@ -56,6 +56,23 @@ def _get_webhook_order_id(resource):
 
     # Capture-completed events usually carry the PayPal order id here.
     return related_ids.get("order_id") or resource.get("id")
+
+
+def _restore_invoice_stock(invoice):
+    """Return reserved stock to products when a payment fails."""
+    for item in invoice.invoice_items:
+        product = Product.query.get(item.product_id)
+        if product is not None:
+            product.quantity_in_stock += item.quantity
+
+
+def _fail_invoice(invoice):
+    """Mark an invoice as failed and restore its reserved stock."""
+    if invoice.payment_status == "failed":
+        return  # already failed — stock was already restored
+    _restore_invoice_stock(invoice)
+    invoice.payment_status = "failed"
+    db.session.commit()
 
 
 def _send_algolia_purchase_event(invoice, user_id):
@@ -158,8 +175,7 @@ def paypal_capture_order():
     try:
         capture_payload = capture_paypal_order(order_id)
     except Exception as exc:  # noqa: BLE001
-        invoice.payment_status = "failed"
-        db.session.commit()
+        _fail_invoice(invoice)
         return jsonify({"message": f"PayPal capture failed: {exc}"}), 502
 
     capture = parse_capture_result(capture_payload)
@@ -168,8 +184,7 @@ def paypal_capture_order():
     expected_amount = _to_money(invoice.total_amount)
 
     if capture_status != "COMPLETED":
-        invoice.payment_status = "failed"
-        db.session.commit()
+        _fail_invoice(invoice)
         return (
             jsonify(
                 {
@@ -181,13 +196,11 @@ def paypal_capture_order():
         )
 
     if captured_amount is None or expected_amount is None:
-        invoice.payment_status = "failed"
-        db.session.commit()
+        _fail_invoice(invoice)
         return jsonify({"message": "Invalid captured amount from PayPal"}), 502
 
     if captured_amount != expected_amount:
-        invoice.payment_status = "failed"
-        db.session.commit()
+        _fail_invoice(invoice)
         return (
             jsonify(
                 {
@@ -277,8 +290,7 @@ def paypal_webhook():
         captured_amount = _to_money(amount.get("value"))
         expected_amount = _to_money(invoice.total_amount)
         if captured_amount is None or expected_amount is None or captured_amount != expected_amount:
-            invoice.payment_status = "failed"
-            db.session.commit()
+            _fail_invoice(invoice)
             return (
                 jsonify(
                     {
@@ -313,8 +325,7 @@ def paypal_webhook():
         "PAYMENT.CAPTURE.REVERSED",
     }:
         if invoice:
-            invoice.payment_status = "failed"
-            db.session.commit()
+            _fail_invoice(invoice)
             return (
                 jsonify(
                     {
