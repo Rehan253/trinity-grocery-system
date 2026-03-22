@@ -2,11 +2,12 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Navbar from "../../components/Navbar"
 import { useCart } from "../../context/CartContext"
+import { capturePaypalOrder, createPaypalOrder } from "../../api/payments"
 
 const Payment = () => {
     const { cartItems, subtotal, tax, shipping, total, clearCart } = useCart()
     const navigate = useNavigate()
-    const [paymentMethod, setPaymentMethod] = useState("card")
+    const [paymentMethod, setPaymentMethod] = useState("paypal")
     const [formData, setFormData] = useState({
         cardNumber: "",
         cardName: "",
@@ -16,9 +17,12 @@ const Payment = () => {
     })
     const [errors, setErrors] = useState({})
     const [isProcessing, setIsProcessing] = useState(false)
+    const [paymentError, setPaymentError] = useState("")
 
     // Load delivery address from localStorage
     const deliveryAddress = JSON.parse(localStorage.getItem("freshexpress-delivery-address") || "{}")
+    const checkoutSummary = JSON.parse(localStorage.getItem("freshexpress-checkout-summary") || "{}")
+    const invoiceId = Number(localStorage.getItem("freshexpress-checkout-invoice-id") || 0)
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target
@@ -97,32 +101,68 @@ const Payment = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (validateForm()) {
-            setIsProcessing(true)
+        if (!validateForm()) {
+            return
+        }
 
-            // Simulate payment processing
-            setTimeout(() => {
-                // Save order details
-                const orderData = {
-                    orderNumber: `FE${Date.now()}`,
-                    date: new Date().toISOString(),
-                    items: cartItems,
-                    deliveryAddress,
-                    paymentMethod,
-                    subtotal,
-                    tax,
-                    shipping,
-                    total
-                }
-                localStorage.setItem("freshexpress-last-order", JSON.stringify(orderData))
+        if (!invoiceId) {
+            setPaymentError("Missing checkout invoice. Please go back to delivery step.")
+            return
+        }
 
-                // Clear cart
-                clearCart()
+        setPaymentError("")
+        setIsProcessing(true)
 
-                // Navigate to confirmation
-                setIsProcessing(false)
-                navigate("/checkout/confirmation")
-            }, 2000)
+        try {
+            if (paymentMethod !== "paypal") {
+                throw new Error("Please choose PayPal. Card/COD are UI-only and do not trigger recommendation events yet.")
+            }
+
+            const createResponse = await createPaypalOrder(invoiceId)
+            if (createResponse && createResponse.status === "Error") {
+                throw new Error(createResponse.errorMessage || "Failed to create PayPal order")
+            }
+
+            const orderId = createResponse?.order_id
+            if (!orderId) {
+                throw new Error("PayPal order_id missing in response")
+            }
+
+            const captureResponse = await capturePaypalOrder(invoiceId, orderId)
+            if (captureResponse && captureResponse.status === "Error") {
+                throw new Error(captureResponse.errorMessage || "Failed to capture PayPal payment")
+            }
+
+            if (captureResponse?.capture_status !== "COMPLETED") {
+                throw new Error(`Capture status is ${captureResponse?.capture_status || "UNKNOWN"}`)
+            }
+
+            const effectiveSubtotal = Number(checkoutSummary.subtotal ?? subtotal)
+            const effectiveTax = Number(checkoutSummary.tax ?? tax)
+            const effectiveShipping = Number(checkoutSummary.shipping ?? shipping)
+            const effectiveTotal = Number(checkoutSummary.total ?? total)
+
+            const orderData = {
+                orderNumber: `INV-${invoiceId}`,
+                date: new Date().toISOString(),
+                items: cartItems,
+                deliveryAddress,
+                paymentMethod,
+                subtotal: effectiveSubtotal,
+                tax: effectiveTax,
+                shipping: effectiveShipping,
+                total: effectiveTotal
+            }
+            localStorage.setItem("freshexpress-last-order", JSON.stringify(orderData))
+            localStorage.removeItem("freshexpress-checkout-invoice-id")
+            localStorage.removeItem("freshexpress-checkout-summary")
+
+            clearCart()
+            navigate("/checkout/confirmation")
+        } catch (error) {
+            setPaymentError(error?.message || "Payment failed")
+        } finally {
+            setIsProcessing(false)
         }
     }
 
@@ -176,6 +216,12 @@ const Payment = () => {
                         </div>
                     </div>
                 </div>
+
+                {paymentError && (
+                    <div className="mb-6 rounded-[--radius-card] border border-red-300 bg-red-100 p-4 text-red-700">
+                        {paymentError}
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left - Payment Form */}
@@ -346,7 +392,7 @@ const Payment = () => {
                                         <div className="text-5xl mb-3">🅿️</div>
                                         <h3 className="font-bold text-lg mb-2">PayPal Payment</h3>
                                         <p className="text-sm text-gray-600 mb-4">
-                                            You will be redirected to PayPal to complete your payment securely.
+                                            This triggers backend PayPal create + capture, then sends purchase events to Algolia.
                                         </p>
                                     </div>
                                 )}

@@ -129,6 +129,10 @@ def test_recommendations_fallback_without_purchase_history(client, app):
 
     assert response.status_code == 200
     assert body["user_id"] == user_id
+    assert "checkout_based" in body
+    assert "also_bought" in body
+    assert body["checkout_based_count"] >= 1
+    assert body["also_bought_count"] == 0
     assert body["recommended_count"] >= 1
     assert len(body["recommendations"]) >= 1
 
@@ -185,7 +189,8 @@ def test_recommendations_use_algolia_hits_when_purchase_history_exists(client, a
     body = response.get_json()
 
     assert response.status_code == 200
-    ids = {item["objectID"] for item in body["recommendations"]}
+    assert body["also_bought_count"] >= 1
+    ids = {item["objectID"] for item in body["also_bought"]}
     assert str(recommended_id_1) in ids
     assert str(recommended_id_2) in ids
     assert str(purchased_id) not in ids

@@ -19,6 +19,7 @@ export const registerAction = async (data) => {
 
 export const logoutAction = () => {
     localStorage.removeItem("token")
+    localStorage.removeItem("refresh_token")
     localStorage.removeItem("user")
 }
 
@@ -39,6 +40,9 @@ const authStore = create(
                         const response = await loginAction(credentials)
                         if (response && response.access_token) {
                             localStorage.setItem("token", response.access_token)
+                            if (response.refresh_token) {
+                                localStorage.setItem("refresh_token", response.refresh_token)
+                            }
                             localStorage.setItem("user", JSON.stringify(response.user))
                             set(
                                 {

@@ -2,8 +2,19 @@
 export const formatErrorMessage = (error) => {
     if (!error) return "An unknown error occurred"
     if (typeof error === "string") return error
+    if (error.msg) return error.msg
     if (error.message) return error.message
     if (error.data && error.data.message) return error.data.message
+    if (typeof error === "object") {
+        const messages = Object.values(error)
+            .flatMap((value) => (Array.isArray(value) ? value : [value]))
+            .map((value) => String(value))
+            .filter(Boolean)
+
+        if (messages.length > 0) {
+            return messages.join(", ")
+        }
+    }
     return "An error occurred"
 }
 
