@@ -36,10 +36,23 @@ function RootNavigator() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+            /** Used as iOS back label when opening screens (e.g. PayPal) from tabs. */
+            title: "Home",
+            headerBackTitle: " ",
+          }}
+        />
         <Stack.Screen
           name="paypal-payment"
-          options={{ title: "PayPal Payment", presentation: "card" }}
+          options={{
+            title: "PayPal Payment",
+            presentation: "card",
+            /** RN Native Stack v7+: chevron only, no “(tabs)” text (iOS). */
+            headerBackButtonDisplayMode: "minimal",
+          }}
         />
         <Stack.Screen
           name="modal"
