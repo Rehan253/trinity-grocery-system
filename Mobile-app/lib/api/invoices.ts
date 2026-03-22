@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api/client";
 import type {
+  AddInvoiceItemPayload,
   CreateInvoicePayload,
   CreateInvoiceResponse,
   MyInvoiceSummaryDto,
@@ -11,8 +12,8 @@ export async function fetchMyInvoices(): Promise<MyInvoiceSummaryDto[]> {
   return Array.isArray(data) ? data : [];
 }
 
-/** POST /invoices/ — create order shell (JWT). */
-export async function createInvoice(
+/** POST /invoices/ — create invoice draft for current user. */
+export async function createInvoiceRequest(
   payload: CreateInvoicePayload,
 ): Promise<CreateInvoiceResponse> {
   const { data } = await apiClient.post<CreateInvoiceResponse>(
@@ -22,15 +23,26 @@ export async function createInvoice(
   return data;
 }
 
-/** POST /invoices/:id/items — add line (JWT). */
+/** Backward-compatible alias used by older screens. */
+export const createInvoice = createInvoiceRequest;
+
+/** POST /invoices/:invoice_id/items — attach product rows to invoice. */
+export async function addInvoiceItemRequest(
+  invoiceId: number,
+  payload: AddInvoiceItemPayload,
+): Promise<{ new_total_amount?: number }> {
+  const { data } = await apiClient.post<{ new_total_amount?: number }>(
+    `/invoices/${encodeURIComponent(String(invoiceId))}/items`,
+    payload,
+  );
+  return data;
+}
+
+/** Backward-compatible helper used by older screens. */
 export async function addInvoiceItem(
   invoiceId: number,
   productId: number,
   quantity: number,
 ): Promise<{ new_total_amount?: number }> {
-  const { data } = await apiClient.post<{ new_total_amount?: number }>(
-    `/invoices/${invoiceId}/items`,
-    { product_id: productId, quantity },
-  );
-  return data;
+  return addInvoiceItemRequest(invoiceId, { product_id: productId, quantity });
 }

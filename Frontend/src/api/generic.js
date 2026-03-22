@@ -2,10 +2,10 @@ import axios from "axios"
 import { getBaseApiUrl } from "../constants/Urls"
 import { formatErrorMessage } from "../constants/Utils"
 
-// ── Refresh token interceptor ──────────────────────────────────────
-
 let isRefreshing = false
 let failedQueue = []
+
+const AUTH_STORE_KEY = "authStore"
 
 const processQueue = (error, token) => {
     failedQueue.forEach((p) => {
@@ -18,6 +18,41 @@ const processQueue = (error, token) => {
     failedQueue = []
 }
 
+const clearPersistedAuthStore = () => {
+    try {
+        const raw = localStorage.getItem(AUTH_STORE_KEY)
+        if (!raw) {
+            return
+        }
+
+        const parsed = JSON.parse(raw)
+        if (!parsed || typeof parsed !== "object") {
+            return
+        }
+
+        const previousState = parsed.state || {}
+        parsed.state = {
+            ...previousState,
+            user: null,
+            token: null,
+            isAuthenticated: false
+        }
+
+        localStorage.setItem(AUTH_STORE_KEY, JSON.stringify(parsed))
+    } catch {
+        // Ignore invalid persisted auth state shape.
+    }
+}
+
+const clearAuthSession = () => {
+    localStorage.removeItem("token")
+    localStorage.removeItem("refresh_token")
+    localStorage.removeItem("user")
+    sessionStorage.removeItem("ACCESS_TOKEN")
+    delete axios.defaults.headers.common["Authorization"]
+    clearPersistedAuthStore()
+}
+
 axios.interceptors.response.use(
     (response) => response,
     async (error) => {
@@ -25,9 +60,9 @@ axios.interceptors.response.use(
 
         if (
             error.response?.status !== 401 ||
-            originalRequest._retry ||
-            originalRequest.url?.includes("/auth/refresh") ||
-            originalRequest.url?.includes("/auth/login")
+            originalRequest?._retry ||
+            originalRequest?.url?.includes("/auth/refresh") ||
+            originalRequest?.url?.includes("/auth/login")
         ) {
             return Promise.reject(error)
         }
@@ -49,10 +84,12 @@ axios.interceptors.response.use(
 
         try {
             const refreshToken = localStorage.getItem("refresh_token")
-            if (!refreshToken) throw new Error("No refresh token")
+            if (!refreshToken) {
+                throw new Error("No refresh token")
+            }
 
             const { data } = await axios.post(
-                getBaseApiUrl() + "auth/refresh",
+                `${getBaseApiUrl()}auth/refresh`,
                 {},
                 { headers: { Authorization: `Bearer ${refreshToken}` } }
             )
@@ -66,10 +103,7 @@ axios.interceptors.response.use(
             return axios(originalRequest)
         } catch (refreshError) {
             processQueue(refreshError, null)
-            // Refresh failed — clear session and redirect to login
-            localStorage.removeItem("token")
-            localStorage.removeItem("refresh_token")
-            localStorage.removeItem("user")
+            clearAuthSession()
             window.location.href = "/login"
             return Promise.reject(refreshError)
         } finally {
@@ -77,8 +111,6 @@ axios.interceptors.response.use(
         }
     }
 )
-
-// ── API methods ────────────────────────────────────────────────────
 
 export const sendPost = async (url, body, baseUrl) => {
     var fullUrl
@@ -139,7 +171,7 @@ export const uploadFiles = async (url, files, baseUrl) => {
     var fullUrl = (baseUrl === undefined ? getBaseApiUrl() : baseUrl) + url
     try {
         var formData = new FormData()
-        files.forEach((file, index) => {
+        files.forEach((file) => {
             formData.append("files", file, file.name)
         })
         var response = await axios.post(fullUrl, formData)
@@ -183,17 +215,20 @@ export const sendDelete = async (url, body, baseUrl) => {
 }
 
 const setHeader = () => {
-    const accessToken = localStorage.getItem("token") || sessionStorage.getItem("ACCESS_TOKEN")
+    const accessToken =
+        localStorage.getItem("token") || sessionStorage.getItem("ACCESS_TOKEN")
 
     axios.defaults.withCredentials = true
     axios.defaults.headers.common["Access-Control-Allow-Origin"] = "*"
+
     if (accessToken) {
         axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`
+    } else {
+        delete axios.defaults.headers.common["Authorization"]
     }
 }
 
 const handleResponse = (response) => {
-    // Handle cases where response is undefined (network error, no response from server)
     if (!response) {
         return {
             status: "Error",
@@ -207,13 +242,22 @@ const handleResponse = (response) => {
         }
 
         return response.data
-    } else {
-        const errorMessage = formatErrorMessage(
-            response.data?.errors || response.data?.message || "An unknown error occurred"
-        )
-        return {
-            status: "Error",
-            errorMessage: errorMessage
-        }
+    }
+
+    if (response.status === 401) {
+        clearAuthSession()
+    }
+
+    const errorMessage = formatErrorMessage(
+        response.data?.errors ||
+            response.data?.message ||
+            response.data?.msg ||
+            response.data ||
+            "An unknown error occurred"
+    )
+
+    return {
+        status: "Error",
+        errorMessage: errorMessage
     }
 }

@@ -42,6 +42,13 @@ function formatCurrency(amount: number) {
   return `$${amount.toFixed(2)}`;
 }
 
+type CheckoutCartItem = {
+  product_id: number;
+  quantity: number;
+  name: string;
+  price: number;
+};
+
 function productMatchesSearch(product: CatalogProduct, query: string) {
   const q = query.trim().toLowerCase();
   if (!q) return true;
@@ -174,6 +181,22 @@ export default function HomeScreen() {
       return;
     }
 
+    const checkoutItems: CheckoutCartItem[] = cartProducts
+      .map((product) => {
+        const quantity = cartItems[product.id] ?? 0;
+        const parsedId = Number(product.id);
+        if (!Number.isInteger(parsedId) || parsedId <= 0 || quantity <= 0) {
+          return null;
+        }
+        return {
+          product_id: parsedId,
+          quantity,
+          name: product.name,
+          price: product.priceValue,
+        };
+      })
+      .filter((item): item is CheckoutCartItem => item !== null);
+
     setIsCartVisible(false);
     router.push({
       pathname: "/paypal-payment",
@@ -181,6 +204,7 @@ export default function HomeScreen() {
         amount: cartSubtotal.toFixed(2),
         items: String(cartCount),
         cartData: JSON.stringify(cartItems),
+        cart: JSON.stringify(checkoutItems),
       },
     });
   }
